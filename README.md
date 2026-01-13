@@ -8,13 +8,13 @@ AI 코딩 어시스턴트(Claude Code, Gemini CLI, Cursor 등)를 위한 프로�
 
 ```bash
 # repo를 로컬에 클론
-git clone https://github.com/4fdkgo/ai-coding-rules ~/.ai-rules
+git clone https://github.com/4fkdgoa/ai-coding-rules ~/.ai-rules
 
 # 새 프로젝트에 CLAUDE.md 복사
 cp ~/.ai-rules/CLAUDE.md ./
 
 # 또는 curl로 직접 (Public일 때)
-curl -o CLAUDE.md https://raw.githubusercontent.com/4fdkgo/ai-coding-rules/main/CLAUDE.md
+curl -o CLAUDE.md https://raw.githubusercontent.com/4fkdgoa/ai-coding-rules/main/CLAUDE.md
 ```
 
 ### 2. AI 모드 선택
