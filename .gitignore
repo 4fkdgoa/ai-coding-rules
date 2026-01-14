@@ -19,3 +19,13 @@ logs/
 # Claude/AI artifacts
 .claude/
 *.claude
+
+# DB Analyzer - 민감 정보
+.ai-analyzer.json
+.env
+db_schema.json
+scripts/db_analyzer/node_modules/
+
+# Progress/Temp
+progress/
+tmpclaude-*

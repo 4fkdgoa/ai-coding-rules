@@ -2,10 +2,13 @@
 # run_gemini.sh - Gemini CLI 실행 및 로그 저장 (Git Bash / WSL / Linux)
 # 사용법: ./run_gemini.sh "질문 내용"
 #         ./run_gemini.sh "질문 내용" task_name
+#         ./run_gemini.sh "질문 내용" task_name --yolo
 
 QUESTION="$1"
 TASK_NAME="${2:-query}"
+YOLO_FLAG="${3:-}"
 LOG_DIR="logs/gemini"
+MODEL="gemini-3-pro-preview"  # GEMINI.md 참조
 
 if [ -z "$QUESTION" ]; then
     echo "Usage: ./run_gemini.sh \"질문\" [task_name]"
@@ -19,19 +22,26 @@ mkdir -p "$LOG_DIR"
 TIMESTAMP=$(date +"%Y-%m-%d_%H%M%S")
 LOG_FILE="$LOG_DIR/${TIMESTAMP}_${TASK_NAME}.log"
 
+# 명령어 구성
+GEMINI_CMD="gemini -m $MODEL"
+if [ "$YOLO_FLAG" = "--yolo" ]; then
+    GEMINI_CMD="$GEMINI_CMD --yolo"
+fi
+
 # 헤더 기록
 cat << EOF | tee "$LOG_FILE"
 === Gemini CLI 실행 ===
 실행 시각: $(date "+%Y-%m-%d %H:%M:%S")
 작업명: $TASK_NAME
-실행 명령어: gemini "$QUESTION"
+모델: $MODEL
+실행 명령어: $GEMINI_CMD "$QUESTION"
 질문:
 $QUESTION
 === 응답 ===
 EOF
 
 # Gemini 실행 (tee로 콘솔 + 파일 동시 출력)
-gemini "$QUESTION" 2>&1 | tee -a "$LOG_FILE"
+$GEMINI_CMD "$QUESTION" 2>&1 | tee -a "$LOG_FILE"
 
 # 종료 시각
 echo "" | tee -a "$LOG_FILE"

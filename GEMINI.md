@@ -119,15 +119,32 @@ secondary_ai: Claude Code (구현 위임용)
 - `read_file` - 파일 읽기
 - `glob` - 파일 패턴 검색
 - `search_file_content` - 코드 검색
-- `delegate_to_agent` - Claude에 위임
+- `write_file` - 문서 파일 수정 (*.md, *.json, *.txt)
+- `delegate_to_agent` - Claude에 위임 (코드 구현)
 - `save_memory` - 메모리 저장
 
-### 사용 불가 (제한됨)
-- `run_shell_command` - 명령 실행 불가
-- `execute_command` - 명령 실행 불가
-- `write_file` - 파일 쓰기 불가
+### Claude에 위임
+- 소스 코드 구현/수정 (*.java, *.js, *.ts, *.py 등)
+- `run_shell_command` - 빌드/테스트 실행
 
-> **NOTE**: 파일 수정이나 명령 실행이 필요하면 Claude에 위임하세요.
+### CLI 실행 옵션
+
+```bash
+# 기본 실행 (gemini-3-pro-preview 모델 사용)
+gemini -m gemini-3-pro-preview "질문"
+
+# 문서 수정 시 (자동 승인)
+gemini -m gemini-3-pro-preview --yolo "문서 검토하고 수정해줘"
+```
+
+### 역할 분담
+
+| 작업 | 담당 |
+|------|------|
+| 문서 작성/수정 | Gemini 직접 |
+| 설계 검토 | Gemini 직접 |
+| 코드 구현 | Claude에 위임 |
+| 빌드/테스트 실행 | Claude에 위임 |
 
 ---
 

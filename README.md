@@ -50,6 +50,39 @@ cp ~/.ai-rules/templates/nodejs.md ./CLAUDE.md        # Node.js
 
 ---
 
+## 신규 프로젝트 분석 (레거시 코드)
+
+처음 보는 프로젝트를 분석하고 문서를 자동 생성하고 싶을 때 사용합니다.
+
+### 1단계: 분석 스크립트 실행
+
+```bash
+# 단일 프로젝트 분석
+analyze_project.sh /path/to/project
+
+# 다중 프로젝트 분석 (의존성 관계 파악 포함)
+analyze_project.sh /path/to/project1 /path/to/project2 full
+
+# DB 스키마 분석 포함
+analyze_project.sh /path/to/project full --with-db
+```
+
+### 2단계: AI에게 문서 생성 요청
+
+스크립트 실행이 완료되면 `docs/.analysis-context.md` 파일이 생성됩니다.
+이후 화면에 출력되는 안내에 따라 Claude나 Gemini에게 다음 프롬프트를 입력하세요:
+
+```
+docs/.analysis-context.md 파일을 읽고, 프로젝트를 분석하여 다음 문서들을 생성해줘:
+- docs/README.md (프로젝트 개요)
+- docs/architecture.md (아키텍처)
+- docs/features/index.md (기능 목록)
+```
+
+자세한 내용은 [문서 생성 가이드](docs/project-analyzer-design.md)를 참조하세요.
+
+---
+
 ## AI CLI 스크립트 사용법
 
 AI CLI 실행 시 자동으로 로그를 남기는 스크립트입니다.
@@ -125,6 +158,18 @@ dual_review.sh src/PaymentService.java
 dual_review.sh src/UserService.java security
 ```
 
+### 크로스체크 자동화 (반자동 프롬프트 가이드)
+
+설계/구현/테스트 단계별로 AI 간의 상호 검증을 수행합니다. (Human-in-the-loop 방식)
+
+```bash
+# 설계 크로스체크
+./scripts/cross_check.sh design docs/design_request.md
+
+# 전체 파이프라인 (설계->구현->테스트)
+./scripts/cross_check.sh full docs/request.md
+```
+
 ---
 
 ## 로그 파일 위치
@@ -171,6 +216,7 @@ ai-coding-rules/
 ├── README.md                    # 이 파일
 │
 ├── scripts/                     # AI CLI 실행 스크립트
+│   ├── analyze_project.sh       # 프로젝트 구조 분석 및 문서화 준비
 │   ├── run_claude.sh            # Claude 실행 + 로그 (Bash)
 │   ├── run_gemini.sh            # Gemini 실행 + 로그 (Bash)
 │   ├── run_ai.sh                # 통합 실행 스크립트 (Bash)
@@ -266,4 +312,4 @@ cd ~/.ai-rules/scripts
 
 ---
 
-**마지막 업데이트**: 2026-01-11
+**마지막 업데이트**: 2026-01-14

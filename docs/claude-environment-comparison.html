@@ -1,0 +1,328 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Claude 사용 환경 비교</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+        body {
+            font-family: 'Malgun Gothic', 'Apple SD Gothic Neo', sans-serif;
+            font-size: 11px;
+            line-height: 1.4;
+            padding: 20px;
+            max-width: 1000px;
+            margin: 0 auto;
+            background: #fff;
+        }
+        h1 {
+            font-size: 20px;
+            margin-bottom: 5px;
+            color: #1a1a1a;
+            border-bottom: 2px solid #6366f1;
+            padding-bottom: 8px;
+        }
+        .date {
+            color: #666;
+            margin-bottom: 20px;
+            font-size: 10px;
+        }
+        h2 {
+            font-size: 14px;
+            margin: 18px 0 8px 0;
+            color: #4f46e5;
+            background: #f5f5ff;
+            padding: 6px 10px;
+            border-radius: 4px;
+        }
+        table {
+            width: 100%;
+            border-collapse: collapse;
+            margin-bottom: 15px;
+            font-size: 10px;
+        }
+        th, td {
+            border: 1px solid #ddd;
+            padding: 6px 8px;
+            text-align: left;
+        }
+        th {
+            background: #4f46e5;
+            color: white;
+            font-weight: 600;
+        }
+        tr:nth-child(even) {
+            background: #f9f9f9;
+        }
+        tr:hover {
+            background: #f0f0ff;
+        }
+        .center {
+            text-align: center;
+        }
+        .highlight {
+            background: #e0e7ff !important;
+            font-weight: 600;
+        }
+        .code {
+            font-family: 'Consolas', 'Monaco', monospace;
+            background: #f4f4f4;
+            padding: 2px 5px;
+            border-radius: 3px;
+            font-size: 9px;
+        }
+        .note {
+            font-size: 9px;
+            color: #666;
+            margin-top: 5px;
+            font-style: italic;
+        }
+        .section-grid {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 15px;
+        }
+        .cli-box {
+            background: #1e1e1e;
+            color: #d4d4d4;
+            padding: 12px;
+            border-radius: 6px;
+            font-family: 'Consolas', monospace;
+            font-size: 10px;
+            margin-top: 10px;
+        }
+        .cli-box .comment {
+            color: #6a9955;
+        }
+        .cli-box .command {
+            color: #9cdcfe;
+        }
+        @media print {
+            body {
+                padding: 10px;
+            }
+            h2 {
+                break-after: avoid;
+            }
+            table {
+                break-inside: avoid;
+            }
+        }
+    </style>
+</head>
+<body>
+    <h1>Claude 사용 환경 비교</h1>
+    <p class="date">웹 / 데스크톱 앱 / 터미널 CLI / VSCode 채팅창 | 작성일: 2025-01-14</p>
+
+    <h2>1. 기본 비교</h2>
+    <table>
+        <tr>
+            <th>구분</th>
+            <th>웹 (claude.ai)</th>
+            <th>데스크톱 앱</th>
+            <th>터미널 (CLI)</th>
+            <th>VSCode 채팅창</th>
+        </tr>
+        <tr>
+            <td><strong>주요 용도</strong></td>
+            <td>일반 대화, 문서 작성</td>
+            <td>일반 대화 + 파일 작업</td>
+            <td class="highlight">코딩 전문</td>
+            <td class="highlight">코딩 전문 (IDE 통합)</td>
+        </tr>
+        <tr>
+            <td><strong>대상 사용자</strong></td>
+            <td>모든 사용자</td>
+            <td>모든 사용자</td>
+            <td>개발자</td>
+            <td>개발자</td>
+        </tr>
+        <tr>
+            <td><strong>설치 필요</strong></td>
+            <td class="center">X (브라우저)</td>
+            <td class="center">O</td>
+            <td class="center">O</td>
+            <td class="center">O (확장)</td>
+        </tr>
+        <tr>
+            <td><strong>인증 방식</strong></td>
+            <td>계정 로그인</td>
+            <td>계정 로그인</td>
+            <td>API 키 또는 계정 로그인</td>
+            <td>API 키 또는 계정 로그인</td>
+        </tr>
+        <tr>
+            <td><strong>요금</strong></td>
+            <td>Free/Pro/Team</td>
+            <td>Free/Pro/Team</td>
+            <td>API 사용량 또는 Pro/Max</td>
+            <td>API 사용량 또는 Pro/Max</td>
+        </tr>
+        <tr>
+            <td><strong>파일 수정</strong></td>
+            <td class="center">X</td>
+            <td>제한적</td>
+            <td class="center highlight">O (직접)</td>
+            <td class="center highlight">O (직접)</td>
+        </tr>
+        <tr>
+            <td><strong>코드 실행</strong></td>
+            <td>O (Artifacts)</td>
+            <td class="center">O</td>
+            <td class="center">O</td>
+            <td class="center">O</td>
+        </tr>
+        <tr>
+            <td><strong>Git 작업</strong></td>
+            <td class="center">X</td>
+            <td class="center">X</td>
+            <td class="center highlight">O</td>
+            <td class="center highlight">O</td>
+        </tr>
+    </table>
+
+    <h2>2. 세션 및 메모리</h2>
+    <table>
+        <tr>
+            <th>구분</th>
+            <th>웹</th>
+            <th>데스크톱 앱</th>
+            <th>터미널 (CLI)</th>
+            <th>VSCode 채팅창</th>
+        </tr>
+        <tr>
+            <td><strong>대화 기록 저장</strong></td>
+            <td>클라우드</td>
+            <td>클라우드</td>
+            <td>로컬 (.claude/)</td>
+            <td>VSCode 저장소</td>
+        </tr>
+        <tr>
+            <td><strong>세션 이어가기</strong></td>
+            <td class="center">O (자동)</td>
+            <td class="center">O (자동)</td>
+            <td>/resume 명령</td>
+            <td class="center">X (새 세션)</td>
+        </tr>
+        <tr>
+            <td><strong>프로젝트별 설정</strong></td>
+            <td class="center">X</td>
+            <td class="center">X</td>
+            <td>CLAUDE.md</td>
+            <td>CLAUDE.md</td>
+        </tr>
+        <tr>
+            <td><strong>메모리 사용량</strong></td>
+            <td>1.2~2GB</td>
+            <td>180~400MB</td>
+            <td>낮음</td>
+            <td>중간</td>
+        </tr>
+        <tr>
+            <td><strong>시작 속도</strong></td>
+            <td>10~12초</td>
+            <td>3초</td>
+            <td>즉시</td>
+            <td>즉시</td>
+        </tr>
+    </table>
+
+    <div class="section-grid">
+        <div>
+            <h2>3. 슬래시 명령어</h2>
+            <table>
+                <tr>
+                    <th>명령어</th>
+                    <th>설명</th>
+                    <th>CLI</th>
+                    <th>VSC</th>
+                </tr>
+                <tr><td class="code">/init</td><td>프로젝트 초기화, CLAUDE.md 생성</td><td class="center">O</td><td class="center">O</td></tr>
+                <tr><td class="code">/help</td><td>모든 명령어 표시</td><td class="center">O</td><td class="center">O</td></tr>
+                <tr><td class="code">/clear</td><td>대화 기록 삭제 (토큰 절약)</td><td class="center">O</td><td class="center">O</td></tr>
+                <tr><td class="code">/compact</td><td>대화 요약, 컨텍스트 줄이기</td><td class="center">O</td><td class="center">O</td></tr>
+                <tr><td class="code">/memory</td><td>CLAUDE.md 편집</td><td class="center">O</td><td class="center">△</td></tr>
+                <tr><td class="code">/model</td><td>모델 변경 (Sonnet/Opus/Haiku)</td><td class="center">O</td><td class="center">O</td></tr>
+                <tr><td class="code">/config</td><td>설정 화면 열기</td><td class="center">O</td><td class="center">△</td></tr>
+                <tr><td class="code">/context</td><td>토큰 사용량 확인</td><td class="center">O</td><td class="center">△</td></tr>
+                <tr><td class="code">/usage</td><td>비용 및 사용량 확인</td><td class="center">O</td><td class="center">△</td></tr>
+                <tr><td class="code">/resume</td><td>이전 세션 이어가기</td><td class="center">O</td><td class="center">X</td></tr>
+                <tr><td class="code">/rewind</td><td>코드/대화 되돌리기</td><td class="center">O</td><td class="center">X</td></tr>
+            </table>
+            <p class="note">△ = 일부 지원, X = 미지원</p>
+        </div>
+        <div>
+            <h2>4. 키보드 단축키 (터미널 CLI)</h2>
+            <table>
+                <tr>
+                    <th>단축키</th>
+                    <th>기능</th>
+                </tr>
+                <tr><td class="code">Ctrl+C</td><td>현재 작업 취소</td></tr>
+                <tr><td class="code">Ctrl+D</td><td>Claude Code 종료</td></tr>
+                <tr><td class="code">Ctrl+R</td><td>명령어 히스토리 검색</td></tr>
+                <tr><td class="code">Ctrl+L</td><td>화면 지우기 (대화 유지)</td></tr>
+                <tr><td class="code">Esc + Esc</td><td>되감기 (이전으로 분기 생성)</td></tr>
+                <tr><td class="code">Tab</td><td>확장 사고 모드 토글</td></tr>
+                <tr><td class="code">Shift+Tab</td><td>Plan 모드 전환</td></tr>
+                <tr><td class="code">Shift+Enter</td><td>줄바꿈 (전송 안 함)</td></tr>
+                <tr><td class="code">↑ / ↓</td><td>이전/다음 명령어</td></tr>
+            </table>
+        </div>
+    </div>
+
+    <h2>5. 고급 기능</h2>
+    <table>
+        <tr>
+            <th>기능</th>
+            <th>웹</th>
+            <th>데스크톱</th>
+            <th>터미널</th>
+            <th>VSCode</th>
+        </tr>
+        <tr><td><strong>MCP 서버 연결</strong></td><td class="center">X</td><td class="center">O</td><td class="center">O</td><td class="center">O</td></tr>
+        <tr><td><strong>커스텀 명령어</strong></td><td class="center">X</td><td class="center">X</td><td class="center">O</td><td class="center">O</td></tr>
+        <tr><td><strong>Hooks (자동화)</strong></td><td class="center">X</td><td class="center">X</td><td class="center">O</td><td class="center">O</td></tr>
+        <tr><td><strong>Connectors (앱 연동)</strong></td><td class="center">X</td><td class="center">O</td><td class="center">X</td><td class="center">X</td></tr>
+        <tr><td><strong>파일 Diff 시각화</strong></td><td class="center">X</td><td class="center">X</td><td>텍스트</td><td class="highlight">GUI</td></tr>
+        <tr><td><strong>Plan 모드</strong></td><td class="center">X</td><td class="center">X</td><td class="center">O</td><td class="center">O</td></tr>
+        <tr><td><strong>다중 창/탭</strong></td><td class="center">O</td><td class="center">O</td><td class="center">X</td><td class="center">O</td></tr>
+        <tr><td><strong>글로벌 단축키</strong></td><td class="center">X</td><td class="center">O</td><td class="center">X</td><td class="center">X</td></tr>
+    </table>
+
+    <h2>6. 사용 시나리오별 추천</h2>
+    <table>
+        <tr>
+            <th>상황</th>
+            <th>추천 환경</th>
+        </tr>
+        <tr><td>일반 질문, 글쓰기, 번역</td><td><strong>웹</strong> 또는 <strong>데스크톱</strong></td></tr>
+        <tr><td>파일 첨부해서 분석</td><td><strong>데스크톱</strong> (안정적)</td></tr>
+        <tr><td>코드 작성/수정/디버깅</td><td><strong>터미널</strong> 또는 <strong>VSCode</strong></td></tr>
+        <tr><td>터미널 작업 선호, 파워유저</td><td><strong>터미널 CLI</strong></td></tr>
+        <tr><td>IDE 통합, 시각적 Diff 선호</td><td><strong>VSCode 채팅창</strong></td></tr>
+        <tr><td>여러 기기에서 접속</td><td><strong>웹</strong></td></tr>
+    </table>
+
+    <h2>7. CLI 시작 명령어</h2>
+    <div class="cli-box">
+        <span class="comment"># 설치</span><br>
+        <span class="command">npm install -g @anthropic-ai/claude-code</span><br><br>
+        <span class="comment"># 실행</span><br>
+        <span class="command">claude</span>                    <span class="comment"># 새 세션 시작</span><br>
+        <span class="command">claude -c</span>                 <span class="comment"># 마지막 세션 이어가기</span><br>
+        <span class="command">claude --resume &lt;id&gt;</span>      <span class="comment"># 특정 세션 이어가기</span><br>
+        <span class="command">claude "질문 내용"</span>         <span class="comment"># 한 번만 질문하고 종료</span>
+    </div>
+
+    <p class="note" style="margin-top: 20px; text-align: center;">
+        참고: <a href="https://code.claude.com/docs">Claude Code 공식 문서</a> |
+        <a href="https://code.claude.com/docs/en/vs-code">VS Code 가이드</a> |
+        <a href="https://code.claude.com/docs/en/slash-commands">슬래시 명령어</a>
+    </p>
+</body>
+</html>
