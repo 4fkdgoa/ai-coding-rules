@@ -1,0 +1,234 @@
+{
+  "metadata": {
+    "customerName": "customer-lg",
+    "basePath": "/home/user/ai-coding-rules/tools/customization-compare/test-data/base-project",
+    "customerPath": "/home/user/ai-coding-rules/tools/customization-compare/test-data/customer-lg",
+    "analyzedAt": "2026-01-16T02:03:52.563Z",
+    "executionTime": "30ms"
+  },
+  "overview": {
+    "totalChanges": 6,
+    "filesAdded": 1,
+    "filesModified": 2,
+    "filesDeleted": 3,
+    "linesAdded": 47,
+    "linesRemoved": 12,
+    "newFeatures": [
+      "ApprovalService"
+    ]
+  },
+  "details": {
+    "structure": {
+      "summary": {
+        "baseFileCount": 5,
+        "customerFileCount": 3,
+        "addedCount": 1,
+        "deletedCount": 3,
+        "modifiedCount": 2,
+        "unchangedCount": 0
+      },
+      "added": {
+        "java": [
+          "src/main/java/com/autocrm/service/ApprovalService.java"
+        ]
+      },
+      "deleted": {
+        "java": [
+          "src/main/java/com/autocrm/service/AuthService.java"
+        ],
+        "javascript": [
+          "src/main/resources/static/js/login.js"
+        ],
+        "config": [
+          "pom.xml"
+        ]
+      },
+      "modified": {
+        "java": [
+          "src/main/java/com/autocrm/controller/LoginController.java"
+        ],
+        "config": [
+          "config/application.properties"
+        ]
+      },
+      "basePath": "/home/user/ai-coding-rules/tools/customization-compare/test-data/base-project",
+      "customerPath": "/home/user/ai-coding-rules/tools/customization-compare/test-data/customer-lg"
+    },
+    "code": {
+      "files": [
+        {
+          "type": "modified",
+          "file": "src/main/java/com/autocrm/controller/LoginController.java",
+          "baseLines": 71,
+          "customerLines": 98,
+          "addedLines": 24,
+          "removedLines": 4,
+          "methods": {
+            "added": [],
+            "removed": [],
+            "modified": []
+          },
+          "hasNewMethods": false,
+          "hasRemovedMethods": false
+        },
+        {
+          "type": "modified",
+          "file": "config/application.properties",
+          "baseLines": 28,
+          "customerLines": 45,
+          "addedLines": 23,
+          "removedLines": 8,
+          "configChanges": {
+            "added": [
+              {
+                "key": "spring.datasource.url",
+                "value": "jdbc:oracle:thin:@lg-db.internal:1521:AUTOCRM"
+              },
+              {
+                "key": "spring.datasource.username",
+                "value": "lg_user"
+              },
+              {
+                "key": "spring.datasource.password",
+                "value": "lg_pass_2024"
+              },
+              {
+                "key": "spring.datasource.driver-class-name",
+                "value": "oracle.jdbc.OracleDriver"
+              },
+              {
+                "key": "logging.level.org.springframework.ldap",
+                "value": "DEBUG"
+              },
+              {
+                "key": "auth.type",
+                "value": "LDAP_PRIMARY"
+              },
+              {
+                "key": "auth.fallback-to-database",
+                "value": "true"
+              },
+              {
+                "key": "ldap.enabled",
+                "value": "true"
+              },
+              {
+                "key": "ldap.url",
+                "value": "ldap://lgldap.internal:389"
+              },
+              {
+                "key": "ldap.base-dn",
+                "value": "dc=lg,dc=com"
+              },
+              {
+                "key": "ldap.user-dn-pattern",
+                "value": "uid={0},ou=people"
+              },
+              {
+                "key": "ldap.group-search-base",
+                "value": "ou=groups"
+              },
+              {
+                "key": "ldap.sync-interval",
+                "value": "3600"
+              },
+              {
+                "key": "approval.enabled",
+                "value": "true"
+              },
+              {
+                "key": "approval.system",
+                "value": "LG_GROUPWARE"
+              },
+              {
+                "key": "approval.api-url",
+                "value": "https://approval.lg.com/api"
+              },
+              {
+                "key": "approval.api-key",
+                "value": "lg_approval_api_key_2024"
+              },
+              {
+                "key": "approval.auto-sync",
+                "value": "true"
+              }
+            ],
+            "removed": [
+              {
+                "key": "spring.datasource.url",
+                "value": "jdbc:mysql://localhost:3306/autocrm_base"
+              },
+              {
+                "key": "spring.datasource.username",
+                "value": "autocrm_user"
+              },
+              {
+                "key": "spring.datasource.password",
+                "value": "password123"
+              },
+              {
+                "key": "spring.datasource.driver-class-name",
+                "value": "com.mysql.cj.jdbc.Driver"
+              },
+              {
+                "key": "auth.type",
+                "value": "DATABASE"
+              }
+            ],
+            "modified": []
+          }
+        }
+      ],
+      "summary": {
+        "totalFiles": 2,
+        "totalAddedLines": 47,
+        "totalRemovedLines": 12,
+        "filesWithNewMethods": 0,
+        "filesWithRemovedMethods": 0,
+        "configChangesCount": 23
+      }
+    },
+    "added": {
+      "totalFiles": 1,
+      "byType": {
+        ".java": [
+          "src/main/java/com/autocrm/service/ApprovalService.java"
+        ]
+      },
+      "newFeatures": [
+        "ApprovalService"
+      ]
+    }
+  },
+  "insights": [
+    {
+      "type": "NEW_FEATURE",
+      "severity": "info",
+      "message": "1개의 신규 기능 추가됨",
+      "details": [
+        "ApprovalService"
+      ]
+    },
+    {
+      "type": "CONFIG_CHANGES",
+      "severity": "info",
+      "message": "23개의 설정 항목 변경됨",
+      "recommendation": "설정 변경 사항을 배포 전에 확인하세요"
+    },
+    {
+      "type": "DELETED_FILES",
+      "severity": "warning",
+      "message": "3개 파일이 삭제됨",
+      "recommendation": "삭제된 파일의 의존성을 확인하세요"
+    },
+    {
+      "type": "SECURITY_CHANGES",
+      "severity": "critical",
+      "message": "인증/보안 관련 코드 변경 감지",
+      "recommendation": "보안 검토 필수",
+      "files": [
+        "src/main/java/com/autocrm/controller/LoginController.java"
+      ]
+    }
+  ]
+}

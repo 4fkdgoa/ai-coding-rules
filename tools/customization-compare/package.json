@@ -1,0 +1,23 @@
+{
+  "name": "customization-compare",
+  "version": "1.0.0",
+  "description": "고객사별 커스터마이징 비교 도구",
+  "type": "module",
+  "main": "compare-projects.js",
+  "scripts": {
+    "compare": "node compare-projects.js",
+    "test": "node compare-projects.js test-data/base-project test-data/customer-samchully",
+    "test-lg": "node compare-projects.js test-data/base-project test-data/customer-lg",
+    "test-all": "npm run test && npm run test-lg"
+  },
+  "keywords": [
+    "customization",
+    "diff",
+    "comparison",
+    "solution"
+  ],
+  "author": "",
+  "license": "MIT",
+  "dependencies": {},
+  "devDependencies": {}
+}

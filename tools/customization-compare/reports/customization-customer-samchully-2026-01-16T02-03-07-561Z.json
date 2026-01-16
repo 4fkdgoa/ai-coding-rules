@@ -1,0 +1,226 @@
+{
+  "metadata": {
+    "customerName": "customer-samchully",
+    "basePath": "/home/user/ai-coding-rules/tools/customization-compare/test-data/base-project",
+    "customerPath": "/home/user/ai-coding-rules/tools/customization-compare/test-data/customer-samchully",
+    "analyzedAt": "2026-01-16T02:03:07.560Z",
+    "executionTime": "32ms"
+  },
+  "overview": {
+    "totalChanges": 6,
+    "filesAdded": 1,
+    "filesModified": 3,
+    "filesDeleted": 2,
+    "linesAdded": 79,
+    "linesRemoved": 12,
+    "newFeatures": [
+      "InventoryService"
+    ]
+  },
+  "details": {
+    "structure": {
+      "summary": {
+        "baseFileCount": 5,
+        "customerFileCount": 4,
+        "addedCount": 1,
+        "deletedCount": 2,
+        "modifiedCount": 3,
+        "unchangedCount": 0
+      },
+      "added": {
+        "java": [
+          "src/main/java/com/autocrm/service/InventoryService.java"
+        ]
+      },
+      "deleted": {
+        "java": [
+          "src/main/java/com/autocrm/service/AuthService.java"
+        ],
+        "config": [
+          "pom.xml"
+        ]
+      },
+      "modified": {
+        "java": [
+          "src/main/java/com/autocrm/controller/LoginController.java"
+        ],
+        "javascript": [
+          "src/main/resources/static/js/login.js"
+        ],
+        "config": [
+          "config/application.properties"
+        ]
+      },
+      "basePath": "/home/user/ai-coding-rules/tools/customization-compare/test-data/base-project",
+      "customerPath": "/home/user/ai-coding-rules/tools/customization-compare/test-data/customer-samchully"
+    },
+    "code": {
+      "files": [
+        {
+          "type": "modified",
+          "file": "src/main/java/com/autocrm/controller/LoginController.java",
+          "baseLines": 71,
+          "customerLines": 132,
+          "addedLines": 33,
+          "removedLines": 3,
+          "methods": {
+            "added": [
+              "maskPhone"
+            ],
+            "removed": [],
+            "modified": []
+          },
+          "hasNewMethods": true,
+          "hasRemovedMethods": false
+        },
+        {
+          "type": "modified",
+          "file": "src/main/resources/static/js/login.js",
+          "baseLines": 40,
+          "customerLines": 99,
+          "addedLines": 28,
+          "removedLines": 2,
+          "functions": {
+            "added": [
+              "showOtpForm"
+            ],
+            "removed": []
+          }
+        },
+        {
+          "type": "modified",
+          "file": "config/application.properties",
+          "baseLines": 28,
+          "customerLines": 41,
+          "addedLines": 18,
+          "removedLines": 7,
+          "configChanges": {
+            "added": [
+              {
+                "key": "spring.datasource.url",
+                "value": "jdbc:mysql://samchully-db.internal:3306/autocrm_samchully"
+              },
+              {
+                "key": "spring.datasource.username",
+                "value": "samchully_user"
+              },
+              {
+                "key": "spring.datasource.password",
+                "value": "samchully_pass_2024"
+              },
+              {
+                "key": "auth.type",
+                "value": "DATABASE_WITH_OTP"
+              },
+              {
+                "key": "auth.otp.enabled",
+                "value": "true"
+              },
+              {
+                "key": "auth.otp.length",
+                "value": "6"
+              },
+              {
+                "key": "auth.otp.expiry-seconds",
+                "value": "300"
+              },
+              {
+                "key": "sms.provider",
+                "value": "ALIGO"
+              },
+              {
+                "key": "sms.api-key",
+                "value": "samchully_sms_api_key_2024"
+              },
+              {
+                "key": "sms.sender",
+                "value": "02-1234-5678"
+              },
+              {
+                "key": "inventory.sync.enabled",
+                "value": "true"
+              },
+              {
+                "key": "inventory.sync.interval",
+                "value": "300"
+              },
+              {
+                "key": "inventory.warehouse.code",
+                "value": "SC_MAIN"
+              }
+            ],
+            "removed": [
+              {
+                "key": "spring.datasource.url",
+                "value": "jdbc:mysql://localhost:3306/autocrm_base"
+              },
+              {
+                "key": "spring.datasource.username",
+                "value": "autocrm_user"
+              },
+              {
+                "key": "spring.datasource.password",
+                "value": "password123"
+              },
+              {
+                "key": "auth.type",
+                "value": "DATABASE"
+              }
+            ],
+            "modified": []
+          }
+        }
+      ],
+      "summary": {
+        "totalFiles": 3,
+        "totalAddedLines": 79,
+        "totalRemovedLines": 12,
+        "filesWithNewMethods": 1,
+        "filesWithRemovedMethods": 0,
+        "configChangesCount": 17
+      }
+    },
+    "added": {
+      "totalFiles": 1,
+      "byType": {
+        ".java": [
+          "src/main/java/com/autocrm/service/InventoryService.java"
+        ]
+      },
+      "newFeatures": [
+        "InventoryService"
+      ]
+    }
+  },
+  "insights": [
+    {
+      "type": "NEW_FEATURE",
+      "severity": "info",
+      "message": "1개의 신규 기능 추가됨",
+      "details": [
+        "InventoryService"
+      ]
+    },
+    {
+      "type": "CONFIG_CHANGES",
+      "severity": "info",
+      "message": "17개의 설정 항목 변경됨",
+      "recommendation": "설정 변경 사항을 배포 전에 확인하세요"
+    },
+    {
+      "type": "DELETED_FILES",
+      "severity": "warning",
+      "message": "2개 파일이 삭제됨",
+      "recommendation": "삭제된 파일의 의존성을 확인하세요"
+    },
+    {
+      "type": "SECURITY_CHANGES",
+      "severity": "critical",
+      "message": "인증/보안 관련 코드 변경 감지",
+      "recommendation": "보안 검토 필수",
+      "files": [
+        "src/main/java/com/autocrm/controller/LoginController.java"
+      ]
+    }
+  ]
+}
