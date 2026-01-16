@@ -8,6 +8,7 @@ const fs = require('fs');
 const path = require('path');
 const AlertLogger = require('./utils/alert-logger');
 const EmailSender = require('./utils/email-sender');
+const WebhookSender = require('./utils/webhook-sender');
 
 // 설정 파일 로드
 const configPath = path.join(__dirname, 'config', 'alert-config.json');
@@ -36,6 +37,7 @@ class DBAlertMonitor {
         this.pool = null;
         this.logger = new AlertLogger(alertConfig.logging);
         this.emailSender = new EmailSender(alertConfig.email);
+        this.webhookSender = new WebhookSender(alertConfig.webhook || {});
         this.thresholds = alertConfig.thresholds;
         this.enabledChecks = alertConfig.monitoring.enabledChecks;
         this.intervalSeconds = alertConfig.monitoring.intervalSeconds || 10;
@@ -334,6 +336,14 @@ class DBAlertMonitor {
             const sent = await this.emailSender.sendAlert(alert);
             if (sent) {
                 console.log(`  📧 이메일 발송: ${alert.level.toUpperCase()} - ${alert.message}`);
+            }
+        }
+
+        // Webhook 발송
+        if (alertConfig.webhook && alertConfig.webhook.enabled) {
+            const sent = await this.webhookSender.sendAlert(alert);
+            if (sent) {
+                console.log(`  🔔 Webhook 발송: ${alert.level.toUpperCase()} - ${alert.message}`);
             }
         }
 

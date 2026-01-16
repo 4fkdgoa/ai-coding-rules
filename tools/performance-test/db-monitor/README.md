@@ -119,13 +119,10 @@ nohup npm run monitor > monitor.log 2>&1 &
 
 | 문서 | 내용 |
 |------|------|
-| [QUICKSTART.md](QUICKSTART.md) | 3분 빠른 시작 |
 | [ARCHITECTURE.md](ARCHITECTURE.md) | 아키텍처 및 외부 실행 상세 |
-| [CONFIG.md](CONFIG.md) | 설정 파일 완벽 가이드 |
-| [EMAIL_SETUP.md](EMAIL_SETUP.md) | 이메일 설정 (Gmail/Outlook 등) |
-| [MONITORING.md](MONITORING.md) | 모니터링 항목 상세 |
-| [TROUBLESHOOTING.md](TROUBLESHOOTING.md) | 문제 해결 |
-| [ADVANCED.md](ADVANCED.md) | 고급 사용법 |
+| [QUERY_WATCH_GUIDE.md](QUERY_WATCH_GUIDE.md) | 특정 쿼리만 모니터링 (XML 파싱) |
+| [LOCK_MONITOR_GUIDE.md](LOCK_MONITOR_GUIDE.md) | Lock 상세 모니터링 (타입, 테이블) |
+| [WEBHOOK_GUIDE.md](WEBHOOK_GUIDE.md) | Webhook 알림 (Google Chat, Slack 등) |
 
 ---
 

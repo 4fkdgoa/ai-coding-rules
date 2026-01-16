@@ -8,7 +8,8 @@
     "test:headed": "playwright test --headed",
     "report": "playwright show-report reports/html",
     "monitor": "node db-monitor/db-alert-monitor.js",
-    "monitor:profile": "node db-monitor/mssql-profiler.js"
+    "monitor:profile": "node db-monitor/mssql-profiler.js",
+    "monitor:test-webhook": "node -e \"const WebhookSender = require('./db-monitor/utils/webhook-sender'); const config = require('./db-monitor/config/alert-config.json'); const sender = new WebhookSender(config.webhook); sender.sendTestMessage().then(() => process.exit());\""
   },
   "keywords": [
     "performance",

@@ -49,6 +49,37 @@
     "includeQueryText": true,
     "maxQueryTextLength": 500
   },
+  "webhook": {
+    "enabled": false,
+    "sendOnLevels": ["critical", "warning"],
+    "throttleMinutes": 10,
+    "webhooks": [
+      {
+        "name": "Google Chat - Dev Team",
+        "type": "google-chat",
+        "url": "https://chat.googleapis.com/v1/spaces/SPACE_ID/messages?key=KEY&token=TOKEN",
+        "enabled": true
+      },
+      {
+        "name": "Slack - DBA Channel",
+        "type": "slack",
+        "url": "https://hooks.slack.com/services/YOUR/WEBHOOK/URL",
+        "enabled": false
+      },
+      {
+        "name": "Discord - Alerts Channel",
+        "type": "discord",
+        "url": "https://discord.com/api/webhooks/YOUR_WEBHOOK_ID/YOUR_WEBHOOK_TOKEN",
+        "enabled": false
+      },
+      {
+        "name": "MS Teams - Operations",
+        "type": "teams",
+        "url": "https://outlook.office.com/webhook/YOUR_WEBHOOK_URL",
+        "enabled": false
+      }
+    ]
+  },
   "monitoring": {
     "intervalSeconds": 10,
     "enabledChecks": {
