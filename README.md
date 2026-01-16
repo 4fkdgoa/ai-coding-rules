@@ -117,15 +117,60 @@ source ~/.bash_profile
 ### 기본 사용법
 
 ```bash
-# Claude에게 질문 (어느 폴더에서든 실행 가능)
+# Claude에게 질문 (기본: Opus 4.5)
 run_claude.sh "고객 검색 API 만들어줘"
 
-# Gemini에게 질문
+# 특정 모델 지정
+run_claude.sh "고객 검색 API 만들어줘" task_name opus-4    # Opus 4.5 (기본)
+run_claude.sh "간단한 함수 작성해줘" task_name sonnet       # Sonnet 4.5 (빠름)
+run_claude.sh "문법 확인해줘" task_name haiku              # Haiku 3.5 (초고속)
+
+# Gemini에게 질문 (기본: Gemini 3 Pro Preview)
 run_gemini.sh "이 코드 리뷰해줘"
+
+# Gemini 특정 모델 지정
+run_gemini.sh "설계 검토해줘" task_name gemini-3-pro-preview  # 3 Pro (기본)
+run_gemini.sh "간단한 질문" task_name flash                    # 2 Flash (빠름)
 
 # 통합 스크립트 (claude 또는 gemini 선택)
 run_ai.sh claude "버그 수정해줘"
 run_ai.sh gemini "아키텍처 분석해줘"
+```
+
+**사용 가능한 모델:**
+
+**Claude (기본: opus-4):**
+- `opus-4` - Claude Opus 4.5 (가장 강력, 기본값)
+- `opus` - Claude Opus 4
+- `sonnet` - Claude Sonnet 4.5 (빠르고 균형잡힌)
+- `haiku` - Claude Haiku 3.5 (초고속)
+
+**Gemini (기본: gemini-3-pro-preview):**
+- `gemini-3-pro-preview` - Gemini 3 Pro Preview (실험적, 기본값)
+- `2-flash` - Gemini 2 Flash (빠름)
+- `2-pro` - Gemini 2 Pro (균형)
+- `1.5-pro` - Gemini 1.5 Pro (안정적)
+
+### 작업별 권장 모델
+
+| 작업 유형 | Claude | Gemini | 이유 |
+|----------|--------|--------|------|
+| 설계/아키텍처 | opus-4 | 3-pro | 깊은 분석 필요 |
+| 코드 리뷰 | opus-4 | 3-pro | 취약점 발견 |
+| 구현/코딩 | sonnet | 3-pro | 빠른 속도 |
+| 간단한 질문 | haiku | 3-pro | 최고 속도 |
+
+> **Note:** Gemini는 3 Pro Preview만 권장 (2 Flash/2 Pro는 품질 불안정)
+
+```bash
+# 설계 검토 (Opus)
+run_claude.sh "아키텍처 검토해줘" design opus-4
+
+# 구현 (Sonnet) - 비용/속도 효율적
+run_claude.sh "이 기능 구현해줘" impl sonnet
+
+# 간단한 질문 (Haiku)
+run_claude.sh "이 에러 뭐야?" query haiku
 ```
 
 ### 작업명 지정 (로그 파일명에 포함)

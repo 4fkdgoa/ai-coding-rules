@@ -120,6 +120,34 @@ test_<기능>_<조건>_<예상결과>
 
 ---
 
+## AI 모델 선택 가이드
+
+작업 유형에 따라 적절한 모델을 선택하세요.
+
+| 작업 유형 | Claude | Gemini | 이유 |
+|----------|--------|--------|------|
+| **설계/아키텍처** | Opus 4.5 | 3 Pro Preview | 깊은 분석, 복잡한 판단 |
+| **코드 리뷰** | Opus 4.5 | 3 Pro Preview | 보안/성능 취약점 발견 |
+| **구현/코딩** | Sonnet 4.5 | 3 Pro Preview | 빠른 속도, 충분한 코딩 능력 |
+| **간단한 질문** | Haiku 3.5 | 3 Pro Preview | 최고 속도, 저비용 |
+| **문서 작성** | Sonnet 4.5 | 3 Pro Preview | 균형 잡힌 품질 |
+
+> **Note:** Gemini는 3 Pro Preview만 권장. 2 Flash/2 Pro는 품질이 불안정함.
+
+**사용 예시:**
+```bash
+# 설계 검토 (Opus)
+run_claude.sh "아키텍처 검토해줘" review opus-4
+
+# 구현 (Sonnet)
+run_claude.sh "이 기능 구현해줘" impl sonnet
+
+# 간단한 질문 (Haiku)
+run_claude.sh "이 에러 뭐야?" query haiku
+```
+
+---
+
 ## AI 어시스턴트 모드
 
 > 프로젝트에서 사용하는 AI 도구에 맞게 모드를 선택하세요.
@@ -296,4 +324,92 @@ GET  /api/users/{id}  - 사용자 상세
 
 ---
 
-**마지막 업데이트**: 2026-01-11
+## 성능 분석
+
+웹 애플리케이션의 프론트엔드부터 데이터베이스까지 전체 성능을 분석하는 방법은 [`docs/performance-analysis-guide.md`](docs/performance-analysis-guide.md)를 참조하세요.
+
+**주요 내용:**
+
+- Playwright를 활용한 프론트엔드 성능 측정
+- MSSQL/MySQL/Oracle DB 성능 분석
+- Performance API 활용한 타이밍 측정
+- HTML 리포트 자동 생성
+- 병목 지점 찾기 및 최적화 방법
+
+**빠른 시작:**
+```bash
+# 프론트엔드 성능 테스트
+npx playwright test tests/performance.spec.js
+
+# DB 성능 분석
+node db-monitor/test-db.js
+```
+
+---
+
+## 폴더/파일 비교 도구
+
+### diff 명령어 (CLI)
+
+#### 기본 사용법
+```bash
+# 두 폴더 비교 (요약)
+diff -rq "폴더1" "폴더2"
+
+# .svn 폴더 제외
+diff -rq "폴더1" "폴더2" | grep -v "\.svn"
+```
+
+#### 옵션 설명
+- `-r` : 재귀 (하위 폴더 포함)
+- `-q` : 요약 모드 (다름/같음만 표시, 내용 안 보여줌)
+
+#### 출력 형식
+```
+Only in 폴더1: 파일명        # 폴더1에만 존재
+Only in 폴더2: 파일명        # 폴더2에만 존재
+Files 파일1 and 파일2 differ # 내용이 다름
+```
+
+#### 필터링 예시
+```bash
+# 한쪽에만 있는 파일
+diff -rq "폴더1" "폴더2" | grep "Only in"
+
+# 내용이 다른 파일만
+diff -rq "폴더1" "폴더2" | grep "differ"
+
+# 특정 확장자만 (예: JSP)
+diff -rq "폴더1" "폴더2" | grep "\.jsp"
+```
+
+### SVN 리비전 비교
+```bash
+# 특정 리비전과 현재 작업본 비교
+"C:\Program Files\SlikSvn\bin\svn.exe" diff -r 1752 --summarize
+
+# 삭제된 파일만
+svn diff -r 1752 --summarize | grep "^D"
+
+# 수정된 파일만
+svn diff -r 1752 --summarize | grep "^M"
+
+# 추가된 파일만
+svn diff -r 1752 --summarize | grep "^A"
+```
+
+### GUI 도구
+
+#### WinMerge
+```bash
+# 폴더 비교 (GUI 실행)
+"C:\Program Files\WinMerge\WinMergeU.exe" /r "폴더1" "폴더2"
+
+# HTML 리포트 생성 (GUI 없이)
+"C:\Program Files\WinMerge\WinMergeU.exe" -noninteractive -or report.html "폴더1" "폴더2"
+```
+- CLI 텍스트 출력 불가, HTML 리포트만 가능
+
+---
+
+**마지막 업데이트**: 2026-01-15
