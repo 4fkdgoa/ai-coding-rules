@@ -80,6 +80,11 @@
       }
     ]
   },
+  "watchQueries": [],
+  "lockMonitoring": {
+    "enabled": true,
+    "accumulationMinutes": 10
+  },
   "monitoring": {
     "intervalSeconds": 10,
     "enabledChecks": {

@@ -9,6 +9,8 @@ const path = require('path');
 const AlertLogger = require('./utils/alert-logger');
 const EmailSender = require('./utils/email-sender');
 const WebhookSender = require('./utils/webhook-sender');
+const QueryWatcher = require('./query-watcher');
+const LockMonitor = require('./lock-monitor');
 
 // 설정 파일 로드
 const configPath = path.join(__dirname, 'config', 'alert-config.json');
@@ -38,11 +40,17 @@ class DBAlertMonitor {
         this.logger = new AlertLogger(alertConfig.logging);
         this.emailSender = new EmailSender(alertConfig.email);
         this.webhookSender = new WebhookSender(alertConfig.webhook || {});
+        this.queryWatcher = null;  // 특정 쿼리 감시
+        this.lockMonitor = null;   // Lock 상세 모니터링
         this.thresholds = alertConfig.thresholds;
         this.enabledChecks = alertConfig.monitoring.enabledChecks;
         this.intervalSeconds = alertConfig.monitoring.intervalSeconds || 10;
         this.monitorInterval = null;
         this.alertCount = { critical: 0, warning: 0, info: 0 };
+
+        // Lock 누적 추적 (세션 ID → { startTime, lastSeen, data })
+        this.lockHistory = new Map();
+        this.lockAccumulationThreshold = (alertConfig.lockMonitoring?.accumulationMinutes || 10) * 60 * 1000;
     }
 
     /**
@@ -53,6 +61,19 @@ class DBAlertMonitor {
             this.pool = await sql.connect(dbConfig);
             console.log('✅ MSSQL 연결 성공');
             console.log(`📊 모니터링 간격: ${this.intervalSeconds}초`);
+
+            // QueryWatcher 초기화 (특정 쿼리 감시)
+            if (alertConfig.watchQueries && alertConfig.watchQueries.length > 0) {
+                this.queryWatcher = new QueryWatcher(this.pool, alertConfig);
+                console.log(`🎯 특정 쿼리 감시: ${alertConfig.watchQueries.length}개`);
+            }
+
+            // LockMonitor 초기화
+            if (alertConfig.lockMonitoring?.enabled !== false) {
+                this.lockMonitor = new LockMonitor(this.pool);
+                console.log('🔒 Lock 상세 모니터링 활성화');
+            }
+
             return true;
         } catch (error) {
             console.error('❌ MSSQL 연결 실패:', error.message);
@@ -105,18 +126,32 @@ class DBAlertMonitor {
         console.log(`⏰ ${timestamp} - 체크 시작...`);
 
         try {
+            // 1. 느린 쿼리 전체 감지
             if (this.enabledChecks.slowQueries) {
                 await this.checkSlowQueries();
             }
 
+            // 2. 특정 쿼리 감시 (QueryWatcher)
+            if (this.queryWatcher) {
+                await this.checkWatchedQueries();
+            }
+
+            // 3. 차단(Blocking) 체크
             if (this.enabledChecks.blocking) {
                 await this.checkBlocking();
             }
 
+            // 4. Lock 누적 체크 (장시간 유지)
+            if (this.lockMonitor) {
+                await this.checkLockAccumulation();
+            }
+
+            // 5. 높은 CPU 체크
             if (this.enabledChecks.highCpu) {
                 await this.checkHighCpu();
             }
 
+            // 6. 데드락 체크
             if (this.enabledChecks.deadlocks) {
                 await this.checkDeadlocks();
             }
@@ -375,6 +410,106 @@ class DBAlertMonitor {
         } catch (error) {
             // 실행 계획 가져오기 실패 시 무시
             return null;
+        }
+    }
+
+    /**
+     * 특정 쿼리 감시 (QueryWatcher)
+     */
+    async checkWatchedQueries() {
+        const alerts = await this.queryWatcher.checkWatchedQueries();
+
+        for (const alert of alerts) {
+            // 레벨 판정 (임계값 기준)
+            const level = this.determineLevel(alert.executionTimeMs, 'executionTimeMs');
+
+            if (level) {
+                await this.createAlert({
+                    type: 'watch_query',
+                    level: level,
+                    message: `워치 쿼리 감지: ${alert.queryName} (${alert.executionTimeMs}ms, 임계값: ${alert.threshold}ms)`,
+                    sessionId: alert.sessionId,
+                    database: alert.database,
+                    executionTimeMs: alert.executionTimeMs,
+                    cpuTimeMs: alert.cpuTimeMs,
+                    logicalReads: alert.logicalReads,
+                    blockingSessionId: alert.blockingSessionId,
+                    waitType: alert.waitType,
+                    queryText: alert.queryText,
+                    queryName: alert.queryName,
+                    threshold: alert.threshold
+                });
+            }
+        }
+    }
+
+    /**
+     * Lock 누적 추적 (장시간 유지되는 Lock 감지)
+     */
+    async checkLockAccumulation() {
+        const conflicts = await this.lockMonitor.detectLockConflicts();
+        const now = Date.now();
+
+        // 현재 Lock 충돌 목록
+        const currentBlockers = new Set();
+
+        for (const conflict of conflicts) {
+            const key = `${conflict.blockerSession}_${conflict.blockedSession}`;
+            currentBlockers.add(key);
+
+            if (!this.lockHistory.has(key)) {
+                // 새로운 Lock 충돌 발견 → 추적 시작
+                this.lockHistory.set(key, {
+                    startTime: now,
+                    lastSeen: now,
+                    data: conflict
+                });
+            } else {
+                // 기존 Lock 충돌 업데이트
+                const history = this.lockHistory.get(key);
+                history.lastSeen = now;
+                history.data = conflict;
+
+                // 누적 시간 계산
+                const accumulatedMs = now - history.startTime;
+
+                // 임계값 초과 시 알림 (10분 이상)
+                if (accumulatedMs >= this.lockAccumulationThreshold) {
+                    const accumulatedMinutes = Math.floor(accumulatedMs / 60000);
+
+                    await this.createAlert({
+                        type: 'lock_accumulation',
+                        level: 'critical',
+                        message: `Lock 장시간 유지: 세션 ${conflict.blockerSession}이(가) ${accumulatedMinutes}분 동안 계속 차단 중`,
+                        sessionId: conflict.blockedSession,
+                        database: conflict.database,
+                        executionTimeMs: accumulatedMs,
+                        blockingSessionId: conflict.blockerSession,
+                        waitType: conflict.waitType,
+                        queryText: `[차단된 쿼리]\n${conflict.blockedQuery}\n\n[차단 중인 쿼리]\n${conflict.blockerQuery}`,
+                        lockDetails: {
+                            accumulatedMinutes: accumulatedMinutes,
+                            resourceType: conflict.resourceType,
+                            objectName: conflict.objectName,
+                            blockedLockMode: conflict.blockedLockMode,
+                            blockerLockMode: conflict.blockerLockMode
+                        }
+                    });
+
+                    // 알림 후 히스토리 갱신 (재알림 방지: 다시 10분 후)
+                    history.startTime = now;
+                }
+            }
+        }
+
+        // 해결된 Lock 충돌 정리
+        for (const [key, history] of this.lockHistory.entries()) {
+            if (!currentBlockers.has(key)) {
+                // 5초 이상 보이지 않으면 해결된 것으로 간주
+                if (now - history.lastSeen > 5000) {
+                    this.lockHistory.delete(key);
+                }
+            }
         }
     }
 
