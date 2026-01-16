@@ -16,6 +16,16 @@ logs/
 *.tmp
 *.bak
 
+# Node
+node_modules/
+
+# Performance test - 민감 정보/결과물
+tools/performance-test/.auth/
+tools/performance-test/test-results/
+tools/performance-test/reports/*.json
+tools/performance-test/reports/*.png
+tools/performance-test/reports/screenshots/
+
 # Claude/AI artifacts
 .claude/
 *.claude

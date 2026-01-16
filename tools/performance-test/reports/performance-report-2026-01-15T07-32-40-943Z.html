@@ -1,0 +1,784 @@
+
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>성능 분석 리포트</title>
+    <style>
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background: #f5f5f5;
+            padding: 20px;
+        }
+        .container {
+            max-width: 1400px;
+            margin: 0 auto;
+            background: white;
+            padding: 30px;
+            border-radius: 8px;
+            box-shadow: 0 2px 8px rgba(0,0,0,0.1);
+        }
+        h1 {
+            color: #333;
+            margin-bottom: 10px;
+            border-bottom: 3px solid #007bff;
+            padding-bottom: 10px;
+        }
+        .timestamp {
+            color: #666;
+            margin-bottom: 30px;
+        }
+        .page-report {
+            margin-bottom: 50px;
+            border: 1px solid #ddd;
+            border-radius: 6px;
+            padding: 20px;
+        }
+        .page-title {
+            font-size: 24px;
+            color: #007bff;
+            margin-bottom: 20px;
+        }
+        .section {
+            margin-bottom: 30px;
+        }
+        .section-title {
+            font-size: 18px;
+            color: #333;
+            margin-bottom: 15px;
+            padding-bottom: 8px;
+            border-bottom: 2px solid #eee;
+        }
+        .metrics-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+            gap: 15px;
+            margin-bottom: 20px;
+        }
+        .metric-card {
+            background: #f8f9fa;
+            padding: 15px;
+            border-radius: 6px;
+            border-left: 4px solid #007bff;
+        }
+        .metric-label {
+            font-size: 12px;
+            color: #666;
+            text-transform: uppercase;
+            margin-bottom: 5px;
+        }
+        .metric-value {
+            font-size: 24px;
+            font-weight: bold;
+            color: #333;
+        }
+        .metric-unit {
+            font-size: 14px;
+            color: #999;
+            margin-left: 5px;
+        }
+        .good { border-left-color: #28a745; }
+        .warning { border-left-color: #ffc107; }
+        .bad { border-left-color: #dc3545; }
+        table {
+            width: 100%;
+            border-collapse: collapse;
+            margin-top: 10px;
+        }
+        th, td {
+            padding: 12px;
+            text-align: left;
+            border-bottom: 1px solid #ddd;
+        }
+        th {
+            background: #f8f9fa;
+            font-weight: 600;
+            color: #333;
+        }
+        tr:hover {
+            background: #f8f9fa;
+        }
+        .status-200 { color: #28a745; font-weight: bold; }
+        .status-300 { color: #17a2b8; font-weight: bold; }
+        .status-400 { color: #ffc107; font-weight: bold; }
+        .status-500 { color: #dc3545; font-weight: bold; }
+        .url-cell {
+            max-width: 400px;
+            overflow: hidden;
+            text-overflow: ellipsis;
+            white-space: nowrap;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>SDMS 성능 분석 리포트</h1>
+        <p class="timestamp">생성 시간: 2026. 1. 15. 오후 4:32:40</p>
+
+        
+        <div class="page-report">
+            <h2 class="page-title">로그인</h2>
+
+            <!-- 네비게이션 메트릭 -->
+            
+            <div class="section">
+                <h3 class="section-title">페이지 로딩 성능</h3>
+                <div class="metrics-grid">
+                    
+        <div class="metric-card good">
+            <div class="metric-label">TTFB</div>
+            <div class="metric-value">
+                14
+                <span class="metric-unit">ms</span>
+            </div>
+        </div>
+        
+                    
+        <div class="metric-card good">
+            <div class="metric-label">DNS</div>
+            <div class="metric-value">
+                0
+                <span class="metric-unit">ms</span>
+            </div>
+        </div>
+        
+                    
+        <div class="metric-card good">
+            <div class="metric-label">TCP</div>
+            <div class="metric-value">
+                0
+                <span class="metric-unit">ms</span>
+            </div>
+        </div>
+        
+                    
+        <div class="metric-card good">
+            <div class="metric-label">요청 시간</div>
+            <div class="metric-value">
+                14
+                <span class="metric-unit">ms</span>
+            </div>
+        </div>
+        
+                    
+        <div class="metric-card good">
+            <div class="metric-label">응답 시간</div>
+            <div class="metric-value">
+                3
+                <span class="metric-unit">ms</span>
+            </div>
+        </div>
+        
+                    
+        <div class="metric-card good">
+            <div class="metric-label">DOM 로드</div>
+            <div class="metric-value">
+                1
+                <span class="metric-unit">ms</span>
+            </div>
+        </div>
+        
+                    
+        <div class="metric-card good">
+            <div class="metric-label">전체 로드</div>
+            <div class="metric-value">
+                709
+                <span class="metric-unit">ms</span>
+            </div>
+        </div>
+        
+                </div>
+            </div>
+            
+
+            <!-- Web Vitals -->
+            
+
+            <!-- API 통계 -->
+            
+            <div class="section">
+                <h3 class="section-title">API 호출 통계</h3>
+                <div class="metrics-grid">
+                    
+        <div class="metric-card good">
+            <div class="metric-label">총 API 호출</div>
+            <div class="metric-value">
+                1
+                <span class="metric-unit">개</span>
+            </div>
+        </div>
+        
+                    
+        <div class="metric-card good">
+            <div class="metric-label">평균 응답</div>
+            <div class="metric-value">
+                18
+                <span class="metric-unit">ms</span>
+            </div>
+        </div>
+        
+                    
+        <div class="metric-card good">
+            <div class="metric-label">최소 응답</div>
+            <div class="metric-value">
+                18
+                <span class="metric-unit">ms</span>
+            </div>
+        </div>
+        
+                    
+        <div class="metric-card good">
+            <div class="metric-label">최대 응답</div>
+            <div class="metric-value">
+                18
+                <span class="metric-unit">ms</span>
+            </div>
+        </div>
+        
+                    
+        <div class="metric-card good">
+            <div class="metric-label">P50</div>
+            <div class="metric-value">
+                18
+                <span class="metric-unit">ms</span>
+            </div>
+        </div>
+        
+                    
+        <div class="metric-card good">
+            <div class="metric-label">P95</div>
+            <div class="metric-value">
+                18
+                <span class="metric-unit">ms</span>
+            </div>
+        </div>
+        
+                </div>
+            </div>
+            
+
+            <!-- API 상세 -->
+            
+            <div class="section">
+                <h3 class="section-title">API 호출 상세</h3>
+                <table>
+                    <thead>
+                        <tr>
+                            <th>URL</th>
+                            <th>메서드</th>
+                            <th>상태</th>
+                            <th>응답시간</th>
+                            <th>크기</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        
+                        <tr>
+                            <td class="url-cell" title="https://sdms.sclmotors.co.kr/sfa/mn/login.do?redirect=%2Fsfa%2Findex.jsp%3F">https://sdms.sclmotors.co.kr/sfa/mn/login.do?redirect=%2Fsfa%2Findex.jsp%3F</td>
+                            <td>GET</td>
+                            <td class="status-200">200</td>
+                            <td>18ms</td>
+                            <td>22.42 KB</td>
+                        </tr>
+                        
+                    </tbody>
+                </table>
+            </div>
+            
+
+            <!-- 리소스 통계 -->
+            
+            <div class="section">
+                <h3 class="section-title">리소스 타입별 통계</h3>
+                <table>
+                    <thead>
+                        <tr>
+                            <th>타입</th>
+                            <th>개수</th>
+                            <th>총 크기</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        
+                        <tr>
+                            <td>document</td>
+                            <td>3</td>
+                            <td>22.42 KB</td>
+                        </tr>
+                        
+                        <tr>
+                            <td>stylesheet</td>
+                            <td>2</td>
+                            <td>37.24 KB</td>
+                        </tr>
+                        
+                        <tr>
+                            <td>script</td>
+                            <td>15</td>
+                            <td>739.36 KB</td>
+                        </tr>
+                        
+                        <tr>
+                            <td>image</td>
+                            <td>5</td>
+                            <td>646.18 KB</td>
+                        </tr>
+                        
+                    </tbody>
+                </table>
+            </div>
+            
+        </div>
+        
+
+        <div class="page-report">
+            <h2 class="page-title">입고관리 (incm01~09)</h2>
+
+            <!-- 네비게이션 메트릭 -->
+            
+            <div class="section">
+                <h3 class="section-title">페이지 로딩 성능</h3>
+                <div class="metrics-grid">
+                    
+        <div class="metric-card good">
+            <div class="metric-label">TTFB</div>
+            <div class="metric-value">
+                9
+                <span class="metric-unit">ms</span>
+            </div>
+        </div>
+        
+                    
+        <div class="metric-card good">
+            <div class="metric-label">DNS</div>
+            <div class="metric-value">
+                0
+                <span class="metric-unit">ms</span>
+            </div>
+        </div>
+        
+                    
+        <div class="metric-card good">
+            <div class="metric-label">TCP</div>
+            <div class="metric-value">
+                0
+                <span class="metric-unit">ms</span>
+            </div>
+        </div>
+        
+                    
+        <div class="metric-card good">
+            <div class="metric-label">요청 시간</div>
+            <div class="metric-value">
+                9
+                <span class="metric-unit">ms</span>
+            </div>
+        </div>
+        
+                    
+        <div class="metric-card good">
+            <div class="metric-label">응답 시간</div>
+            <div class="metric-value">
+                1
+                <span class="metric-unit">ms</span>
+            </div>
+        </div>
+        
+                    
+        <div class="metric-card good">
+            <div class="metric-label">DOM 로드</div>
+            <div class="metric-value">
+                0
+                <span class="metric-unit">ms</span>
+            </div>
+        </div>
+        
+                    
+        <div class="metric-card good">
+            <div class="metric-label">전체 로드</div>
+            <div class="metric-value">
+                69
+                <span class="metric-unit">ms</span>
+            </div>
+        </div>
+        
+                </div>
+            </div>
+            
+
+            <!-- Web Vitals -->
+            
+
+            <!-- API 통계 -->
+            
+            <div class="section">
+                <h3 class="section-title">API 호출 통계</h3>
+                <div class="metrics-grid">
+                    
+        <div class="metric-card good">
+            <div class="metric-label">총 API 호출</div>
+            <div class="metric-value">
+                2
+                <span class="metric-unit">개</span>
+            </div>
+        </div>
+        
+                    
+        <div class="metric-card good">
+            <div class="metric-label">평균 응답</div>
+            <div class="metric-value">
+                13
+                <span class="metric-unit">ms</span>
+            </div>
+        </div>
+        
+                    
+        <div class="metric-card good">
+            <div class="metric-label">최소 응답</div>
+            <div class="metric-value">
+                11
+                <span class="metric-unit">ms</span>
+            </div>
+        </div>
+        
+                    
+        <div class="metric-card good">
+            <div class="metric-label">최대 응답</div>
+            <div class="metric-value">
+                16
+                <span class="metric-unit">ms</span>
+            </div>
+        </div>
+        
+                    
+        <div class="metric-card good">
+            <div class="metric-label">P50</div>
+            <div class="metric-value">
+                16
+                <span class="metric-unit">ms</span>
+            </div>
+        </div>
+        
+                    
+        <div class="metric-card good">
+            <div class="metric-label">P95</div>
+            <div class="metric-value">
+                16
+                <span class="metric-unit">ms</span>
+            </div>
+        </div>
+        
+                </div>
+            </div>
+            
+
+            <!-- API 상세 -->
+            
+            <div class="section">
+                <h3 class="section-title">API 호출 상세</h3>
+                <table>
+                    <thead>
+                        <tr>
+                            <th>URL</th>
+                            <th>메서드</th>
+                            <th>상태</th>
+                            <th>응답시간</th>
+                            <th>크기</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        
+                        <tr>
+                            <td class="url-cell" title="https://sdms.sclmotors.co.kr/sfa/in/cm/incm01.crm">https://sdms.sclmotors.co.kr/sfa/in/cm/incm01.crm</td>
+                            <td>GET</td>
+                            <td class="status-300">302</td>
+                            <td>16ms</td>
+                            <td>0 B</td>
+                        </tr>
+                        
+                        <tr>
+                            <td class="url-cell" title="https://sdms.sclmotors.co.kr/sfa/mn/login.do?redirect=%2Fsfa%2Fin%2Fcm%2Fincm01.crm%3F">https://sdms.sclmotors.co.kr/sfa/mn/login.do?redirect=%2Fsfa%2Fin%2Fcm%2Fincm01.crm%3F</td>
+                            <td>GET</td>
+                            <td class="status-200">200</td>
+                            <td>11ms</td>
+                            <td>22.43 KB</td>
+                        </tr>
+                        
+                    </tbody>
+                </table>
+            </div>
+            
+
+            <!-- 리소스 통계 -->
+            
+            <div class="section">
+                <h3 class="section-title">리소스 타입별 통계</h3>
+                <table>
+                    <thead>
+                        <tr>
+                            <th>타입</th>
+                            <th>개수</th>
+                            <th>총 크기</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        
+                        <tr>
+                            <td>document</td>
+                            <td>2</td>
+                            <td>22.43 KB</td>
+                        </tr>
+                        
+                        <tr>
+                            <td>script</td>
+                            <td>15</td>
+                            <td>463.47 KB</td>
+                        </tr>
+                        
+                        <tr>
+                            <td>stylesheet</td>
+                            <td>2</td>
+                            <td>37.24 KB</td>
+                        </tr>
+                        
+                        <tr>
+                            <td>image</td>
+                            <td>5</td>
+                            <td>646.18 KB</td>
+                        </tr>
+                        
+                    </tbody>
+                </table>
+            </div>
+            
+        </div>
+        
+
+        <div class="page-report">
+            <h2 class="page-title">엑셀 관리 (smrm01)</h2>
+
+            <!-- 네비게이션 메트릭 -->
+            
+            <div class="section">
+                <h3 class="section-title">페이지 로딩 성능</h3>
+                <div class="metrics-grid">
+                    
+        <div class="metric-card good">
+            <div class="metric-label">TTFB</div>
+            <div class="metric-value">
+                14
+                <span class="metric-unit">ms</span>
+            </div>
+        </div>
+        
+                    
+        <div class="metric-card good">
+            <div class="metric-label">DNS</div>
+            <div class="metric-value">
+                0
+                <span class="metric-unit">ms</span>
+            </div>
+        </div>
+        
+                    
+        <div class="metric-card good">
+            <div class="metric-label">TCP</div>
+            <div class="metric-value">
+                0
+                <span class="metric-unit">ms</span>
+            </div>
+        </div>
+        
+                    
+        <div class="metric-card good">
+            <div class="metric-label">요청 시간</div>
+            <div class="metric-value">
+                14
+                <span class="metric-unit">ms</span>
+            </div>
+        </div>
+        
+                    
+        <div class="metric-card good">
+            <div class="metric-label">응답 시간</div>
+            <div class="metric-value">
+                1
+                <span class="metric-unit">ms</span>
+            </div>
+        </div>
+        
+                    
+        <div class="metric-card good">
+            <div class="metric-label">DOM 로드</div>
+            <div class="metric-value">
+                0
+                <span class="metric-unit">ms</span>
+            </div>
+        </div>
+        
+                    
+        <div class="metric-card good">
+            <div class="metric-label">전체 로드</div>
+            <div class="metric-value">
+                91
+                <span class="metric-unit">ms</span>
+            </div>
+        </div>
+        
+                </div>
+            </div>
+            
+
+            <!-- Web Vitals -->
+            
+
+            <!-- API 통계 -->
+            
+            <div class="section">
+                <h3 class="section-title">API 호출 통계</h3>
+                <div class="metrics-grid">
+                    
+        <div class="metric-card good">
+            <div class="metric-label">총 API 호출</div>
+            <div class="metric-value">
+                2
+                <span class="metric-unit">개</span>
+            </div>
+        </div>
+        
+                    
+        <div class="metric-card good">
+            <div class="metric-label">평균 응답</div>
+            <div class="metric-value">
+                14
+                <span class="metric-unit">ms</span>
+            </div>
+        </div>
+        
+                    
+        <div class="metric-card good">
+            <div class="metric-label">최소 응답</div>
+            <div class="metric-value">
+                12
+                <span class="metric-unit">ms</span>
+            </div>
+        </div>
+        
+                    
+        <div class="metric-card good">
+            <div class="metric-label">최대 응답</div>
+            <div class="metric-value">
+                16
+                <span class="metric-unit">ms</span>
+            </div>
+        </div>
+        
+                    
+        <div class="metric-card good">
+            <div class="metric-label">P50</div>
+            <div class="metric-value">
+                16
+                <span class="metric-unit">ms</span>
+            </div>
+        </div>
+        
+                    
+        <div class="metric-card good">
+            <div class="metric-label">P95</div>
+            <div class="metric-value">
+                16
+                <span class="metric-unit">ms</span>
+            </div>
+        </div>
+        
+                </div>
+            </div>
+            
+
+            <!-- API 상세 -->
+            
+            <div class="section">
+                <h3 class="section-title">API 호출 상세</h3>
+                <table>
+                    <thead>
+                        <tr>
+                            <th>URL</th>
+                            <th>메서드</th>
+                            <th>상태</th>
+                            <th>응답시간</th>
+                            <th>크기</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        
+                        <tr>
+                            <td class="url-cell" title="https://sdms.sclmotors.co.kr/sfa/sm/rm/smrm01.do">https://sdms.sclmotors.co.kr/sfa/sm/rm/smrm01.do</td>
+                            <td>GET</td>
+                            <td class="status-300">302</td>
+                            <td>12ms</td>
+                            <td>0 B</td>
+                        </tr>
+                        
+                        <tr>
+                            <td class="url-cell" title="https://sdms.sclmotors.co.kr/sfa/mn/login.do?redirect=%2Fsfa%2Fsm%2Frm%2Fsmrm01.do%3F">https://sdms.sclmotors.co.kr/sfa/mn/login.do?redirect=%2Fsfa%2Fsm%2Frm%2Fsmrm01.do%3F</td>
+                            <td>GET</td>
+                            <td class="status-200">200</td>
+                            <td>16ms</td>
+                            <td>22.43 KB</td>
+                        </tr>
+                        
+                    </tbody>
+                </table>
+            </div>
+            
+
+            <!-- 리소스 통계 -->
+            
+            <div class="section">
+                <h3 class="section-title">리소스 타입별 통계</h3>
+                <table>
+                    <thead>
+                        <tr>
+                            <th>타입</th>
+                            <th>개수</th>
+                            <th>총 크기</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        
+                        <tr>
+                            <td>document</td>
+                            <td>2</td>
+                            <td>22.43 KB</td>
+                        </tr>
+                        
+                        <tr>
+                            <td>script</td>
+                            <td>15</td>
+                            <td>463.47 KB</td>
+                        </tr>
+                        
+                        <tr>
+                            <td>stylesheet</td>
+                            <td>2</td>
+                            <td>37.24 KB</td>
+                        </tr>
+                        
+                        <tr>
+                            <td>image</td>
+                            <td>5</td>
+                            <td>646.18 KB</td>
+                        </tr>
+                        
+                    </tbody>
+                </table>
+            </div>
+            
+        </div>
+        
+    </div>
+</body>
+</html>
+        
