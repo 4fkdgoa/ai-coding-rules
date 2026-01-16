@@ -306,27 +306,31 @@ if (no frameworks && no deps) → Utility/Library
 
 ## 현재 한계점 및 문제
 
-### 1. 에러 핸들링 부족 ⚠️
-**문제**:
-- 존재하지 않는 경로 → 에러 없이 "0개 파일"
-- 빈 디렉토리 → 의미 없는 문서 생성
-- 경고 메시지 없음
+### 1. 에러 핸들링 ✅ (해결됨)
+**구현 완료** (2026-01-16):
+- ✅ 경로 존재 여부 검증
+- ✅ 디렉토리 타입 확인
+- ✅ 분석 가능한 파일 개수 체크
+- ✅ 명확한 에러 메시지
 
-**개선 필요**:
+**구현 코드**:
 ```javascript
-// 경로 검증
-if (!fs.existsSync(projectPath)) {
-  throw new Error(`프로젝트 경로가 존재하지 않습니다: ${projectPath}`);
-}
+validatePath() {
+  if (!fs.existsSync(this.projectPath)) {
+    throw new Error(`프로젝트 경로를 찾을 수 없습니다: ${this.projectPath}`);
+  }
 
-// 최소 파일 수 체크
-if (files.length < 5) {
-  console.warn(`⚠️  파일이 ${files.length}개뿐입니다. 결과가 부정확할 수 있습니다.`);
-}
+  if (!fs.statSync(this.projectPath).isDirectory()) {
+    throw new Error(`프로젝트 경로가 디렉토리가 아닙니다: ${this.projectPath}`);
+  }
 
-// JS/TS 파일 없음
-if (jsFiles.length === 0) {
-  console.warn('⚠️  JavaScript/TypeScript 파일이 없어 코딩 스타일 분석을 건너뜁니다.');
+  const fileCount = this.countAnalyzableFiles();
+  if (fileCount === 0) {
+    throw new Error(
+      `분석할 파일이 없습니다: ${this.projectPath}\n` +
+      `  지원 확장자: .js, .ts, .jsx, .tsx, .java, .py, .go, .rs`
+    );
+  }
 }
 ```
 

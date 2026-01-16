@@ -21,6 +21,75 @@ class ConventionExtractor {
     }
 
     /**
+     * 경로 검증
+     */
+    validatePath() {
+        // 경로 존재 확인
+        if (!fs.existsSync(this.projectPath)) {
+            throw new Error(`프로젝트 경로를 찾을 수 없습니다: ${this.projectPath}`);
+        }
+
+        // 디렉토리 확인
+        const stats = fs.statSync(this.projectPath);
+        if (!stats.isDirectory()) {
+            throw new Error(`프로젝트 경로가 디렉토리가 아닙니다: ${this.projectPath}`);
+        }
+
+        // 파일 개수 확인
+        const fileCount = this.countAnalyzableFiles();
+        if (fileCount === 0) {
+            throw new Error(
+                `분석할 파일이 없습니다: ${this.projectPath}\n` +
+                `  지원 확장자: .js, .ts, .jsx, .tsx, .java, .py, .go, .rs`
+            );
+        }
+
+        console.log(`✓ 경로 검증 완료 (분석 대상: ${fileCount}개 파일)`);
+        return fileCount;
+    }
+
+    /**
+     * 분석 가능한 파일 개수 세기
+     */
+    countAnalyzableFiles() {
+        const supportedExts = ['.js', '.ts', '.jsx', '.tsx', '.java', '.py', '.go', '.rs'];
+        let count = 0;
+
+        const scanDir = (dir) => {
+            try {
+                const entries = fs.readdirSync(dir, { withFileTypes: true });
+                for (const entry of entries) {
+                    const fullPath = path.join(dir, entry.name);
+
+                    // 제외 디렉토리
+                    if (entry.name === 'node_modules' ||
+                        entry.name === '.git' ||
+                        entry.name === 'dist' ||
+                        entry.name === 'build' ||
+                        entry.name === 'coverage' ||
+                        entry.name === '__pycache__') {
+                        continue;
+                    }
+
+                    if (entry.isDirectory()) {
+                        scanDir(fullPath);
+                    } else if (entry.isFile()) {
+                        const ext = path.extname(entry.name);
+                        if (supportedExts.includes(ext)) {
+                            count++;
+                        }
+                    }
+                }
+            } catch (err) {
+                // 권한 없는 디렉토리는 건너뛰기
+            }
+        };
+
+        scanDir(this.projectPath);
+        return count;
+    }
+
+    /**
      * 전체 분석 실행
      */
     async extract() {
@@ -28,6 +97,10 @@ class ConventionExtractor {
         console.log('🔍 컨벤션 자동 추출 도구');
         console.log('='.repeat(80));
         console.log(`프로젝트: ${this.projectPath}`);
+        console.log('');
+
+        // 경로 검증
+        const fileCount = this.validatePath();
         console.log('');
 
         const startTime = Date.now();

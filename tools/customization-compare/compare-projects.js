@@ -22,6 +22,80 @@ class CustomizationComparer {
     }
 
     /**
+     * 경로 검증
+     */
+    validatePaths() {
+        const errors = [];
+
+        // Base 경로 검증
+        if (!fs.existsSync(this.basePath)) {
+            errors.push(`Base 프로젝트 경로를 찾을 수 없습니다: ${this.basePath}`);
+        } else if (!fs.statSync(this.basePath).isDirectory()) {
+            errors.push(`Base 경로가 디렉토리가 아닙니다: ${this.basePath}`);
+        }
+
+        // Customer 경로 검증
+        if (!fs.existsSync(this.customerPath)) {
+            errors.push(`고객사 프로젝트 경로를 찾을 수 없습니다: ${this.customerPath}`);
+        } else if (!fs.statSync(this.customerPath).isDirectory()) {
+            errors.push(`고객사 경로가 디렉토리가 아닙니다: ${this.customerPath}`);
+        }
+
+        if (errors.length > 0) {
+            throw new Error(`경로 검증 실패:\n  - ${errors.join('\n  - ')}`);
+        }
+
+        // 최소 파일 개수 체크
+        const baseFiles = this.countFiles(this.basePath);
+        const customerFiles = this.countFiles(this.customerPath);
+
+        if (baseFiles === 0) {
+            throw new Error(`Base 프로젝트에 분석할 파일이 없습니다: ${this.basePath}`);
+        }
+
+        if (customerFiles === 0) {
+            throw new Error(`고객사 프로젝트에 분석할 파일이 없습니다: ${this.customerPath}`);
+        }
+
+        console.log(`✓ 경로 검증 완료 (Base: ${baseFiles}개, Customer: ${customerFiles}개 파일)`);
+    }
+
+    /**
+     * 디렉토리 내 파일 개수 세기
+     */
+    countFiles(dirPath) {
+        let count = 0;
+
+        const scanDir = (dir) => {
+            try {
+                const entries = fs.readdirSync(dir, { withFileTypes: true });
+                for (const entry of entries) {
+                    const fullPath = path.join(dir, entry.name);
+
+                    // node_modules, .git 등 무시
+                    if (entry.name === 'node_modules' ||
+                        entry.name === '.git' ||
+                        entry.name === 'dist' ||
+                        entry.name === 'build') {
+                        continue;
+                    }
+
+                    if (entry.isDirectory()) {
+                        scanDir(fullPath);
+                    } else if (entry.isFile()) {
+                        count++;
+                    }
+                }
+            } catch (err) {
+                // 권한 없는 디렉토리는 건너뛰기
+            }
+        };
+
+        scanDir(dirPath);
+        return count;
+    }
+
+    /**
      * 전체 비교 실행
      */
     async compare() {
@@ -30,6 +104,10 @@ class CustomizationComparer {
         console.log('='.repeat(80));
         console.log(`Base 프로젝트: ${this.basePath}`);
         console.log(`고객사 프로젝트: ${this.customerPath} (${this.customerName})`);
+        console.log('');
+
+        // 경로 검증
+        this.validatePaths();
         console.log('');
 
         const startTime = Date.now();
