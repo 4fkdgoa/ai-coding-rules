@@ -1,0 +1,558 @@
+{
+  "metadata": {
+    "projectPath": "/home/user/ai-coding-rules",
+    "analyzedAt": "2026-01-16T02:38:51.625Z",
+    "executionTime": "70ms"
+  },
+  "structure": {
+    "summary": {
+      "totalFiles": 85,
+      "totalDirectories": 57,
+      "avgDepth": 2.4,
+      "extensions": {
+        ".md": 39,
+        ".csv": 1,
+        ".html": 1,
+        ".sh": 7,
+        ".ps1": 6,
+        ".js": 15,
+        ".json": 6,
+        ".properties": 3,
+        ".xml": 1,
+        ".java": 6
+      }
+    },
+    "structure": {
+      ".": {
+        "files": [
+          "CLAUDE.md",
+          "GEMINI.md",
+          "README.md"
+        ],
+        "count": 3,
+        "extensions": {
+          ".md": 3
+        }
+      },
+      "docs": {
+        "files": [
+          "claude-environment-comparison.csv",
+          "claude-environment-comparison.html",
+          "claude-environment-comparison.md",
+          "config-pattern-review-request.md",
+          "config-pattern-review-response.md",
+          "db-analyzer-code-review-request.md",
+          "db-analyzer-code-review.md",
+          "db-analyzer-design-request.md",
+          "db-analyzer-design-review.md",
+          "db-analyzer-guide.md",
+          "db-analyzer-noninteractive-design.md",
+          "db_analyzer_review_request.md",
+          "db_analyzer_review_response.md",
+          "phase1_review_request.md",
+          "phase1_review_response.md",
+          "project-analyzer-design.md"
+        ],
+        "count": 16,
+        "extensions": {
+          ".csv": 1,
+          ".html": 1,
+          ".md": 14
+        }
+      },
+      "scripts": {
+        "files": [
+          "analyze_project.sh",
+          "cross_check.sh",
+          "cross_review.ps1",
+          "cross_review.sh",
+          "dual_review.ps1",
+          "dual_review.sh",
+          "request_code_review.ps1",
+          "run_ai.ps1",
+          "run_ai.sh",
+          "run_claude.ps1",
+          "run_claude.sh",
+          "run_gemini.ps1",
+          "run_gemini.sh"
+        ],
+        "count": 13,
+        "extensions": {
+          ".sh": 7,
+          ".ps1": 6
+        }
+      },
+      "scripts/db_analyzer/adapters": {
+        "files": [
+          "mssql.js",
+          "mysql.js",
+          "oracle.js",
+          "postgresql.js"
+        ],
+        "count": 4,
+        "extensions": {
+          ".js": 4
+        }
+      },
+      "scripts/db_analyzer": {
+        "files": [
+          "index.js",
+          "package-lock.json",
+          "package.json"
+        ],
+        "count": 3,
+        "extensions": {
+          ".js": 1,
+          ".json": 2
+        }
+      },
+      "skills": {
+        "files": [
+          "custom-tools.md",
+          "skill-examples.md"
+        ],
+        "count": 2,
+        "extensions": {
+          ".md": 2
+        }
+      },
+      "snippets": {
+        "files": [
+          "ai-cli-setup.md",
+          "ai-integration-reality.md",
+          "ai-test-framework.md",
+          "code-review.md",
+          "db-connection.md",
+          "db-query.md",
+          "git-commit.md",
+          "log-shortcuts.md",
+          "powershell-encoding.md",
+          "project-templates.md",
+          "testing.md"
+        ],
+        "count": 11,
+        "extensions": {
+          ".md": 11
+        }
+      },
+      "templates": {
+        "files": [
+          "architecture.md",
+          "java-spring.md",
+          "nodejs.md",
+          "python.md"
+        ],
+        "count": 4,
+        "extensions": {
+          ".md": 4
+        }
+      },
+      "tools/convention-extractor/analyzers": {
+        "files": [
+          "coding-style-analyzer.js",
+          "file-structure-analyzer.js",
+          "naming-convention-analyzer.js",
+          "tech-stack-detector.js"
+        ],
+        "count": 4,
+        "extensions": {
+          ".js": 4
+        }
+      },
+      "tools/convention-extractor": {
+        "files": [
+          "extract-conventions.js",
+          "package.json"
+        ],
+        "count": 2,
+        "extensions": {
+          ".js": 1,
+          ".json": 1
+        }
+      },
+      "tools/customization-compare": {
+        "files": [
+          "DESIGN.md",
+          "README.md",
+          "compare-projects.js",
+          "package.json"
+        ],
+        "count": 4,
+        "extensions": {
+          ".md": 2,
+          ".js": 1,
+          ".json": 1
+        }
+      },
+      "tools/customization-compare/analyzers": {
+        "files": [
+          "code-diff.js",
+          "structure-diff.js"
+        ],
+        "count": 2,
+        "extensions": {
+          ".js": 2
+        }
+      },
+      "tools/customization-compare/reports": {
+        "files": [
+          "customization-customer-lg-2026-01-16T02-03-52-564Z.json",
+          "customization-customer-lg-2026-01-16T02-03-52-564Z.md",
+          "customization-customer-samchully-2026-01-16T02-03-07-561Z.json",
+          "customization-customer-samchully-2026-01-16T02-03-07-561Z.md"
+        ],
+        "count": 4,
+        "extensions": {
+          ".json": 2,
+          ".md": 2
+        }
+      },
+      "tools/customization-compare/test-data": {
+        "files": [
+          "README.md"
+        ],
+        "count": 1,
+        "extensions": {
+          ".md": 1
+        }
+      },
+      "tools/customization-compare/test-data/base-project/config": {
+        "files": [
+          "application.properties"
+        ],
+        "count": 1,
+        "extensions": {
+          ".properties": 1
+        }
+      },
+      "tools/customization-compare/test-data/base-project": {
+        "files": [
+          "pom.xml"
+        ],
+        "count": 1,
+        "extensions": {
+          ".xml": 1
+        }
+      },
+      "tools/customization-compare/test-data/base-project/src/main/java/com/autocrm/controller": {
+        "files": [
+          "LoginController.java"
+        ],
+        "count": 1,
+        "extensions": {
+          ".java": 1
+        }
+      },
+      "tools/customization-compare/test-data/base-project/src/main/java/com/autocrm/service": {
+        "files": [
+          "AuthService.java"
+        ],
+        "count": 1,
+        "extensions": {
+          ".java": 1
+        }
+      },
+      "tools/customization-compare/test-data/base-project/src/main/resources/static/js": {
+        "files": [
+          "login.js"
+        ],
+        "count": 1,
+        "extensions": {
+          ".js": 1
+        }
+      },
+      "tools/customization-compare/test-data/customer-lg/config": {
+        "files": [
+          "application.properties"
+        ],
+        "count": 1,
+        "extensions": {
+          ".properties": 1
+        }
+      },
+      "tools/customization-compare/test-data/customer-lg/src/main/java/com/autocrm/controller": {
+        "files": [
+          "LoginController.java"
+        ],
+        "count": 1,
+        "extensions": {
+          ".java": 1
+        }
+      },
+      "tools/customization-compare/test-data/customer-lg/src/main/java/com/autocrm/service": {
+        "files": [
+          "ApprovalService.java"
+        ],
+        "count": 1,
+        "extensions": {
+          ".java": 1
+        }
+      },
+      "tools/customization-compare/test-data/customer-samchully/config": {
+        "files": [
+          "application.properties"
+        ],
+        "count": 1,
+        "extensions": {
+          ".properties": 1
+        }
+      },
+      "tools/customization-compare/test-data/customer-samchully/src/main/java/com/autocrm/controller": {
+        "files": [
+          "LoginController.java"
+        ],
+        "count": 1,
+        "extensions": {
+          ".java": 1
+        }
+      },
+      "tools/customization-compare/test-data/customer-samchully/src/main/java/com/autocrm/service": {
+        "files": [
+          "InventoryService.java"
+        ],
+        "count": 1,
+        "extensions": {
+          ".java": 1
+        }
+      },
+      "tools/customization-compare/test-data/customer-samchully/src/main/resources/static/js": {
+        "files": [
+          "login.js"
+        ],
+        "count": 1,
+        "extensions": {
+          ".js": 1
+        }
+      }
+    },
+    "fileNamePatterns": {
+      "kebabCase": 34,
+      "camelCase": 18,
+      "pascalCase": 12,
+      "snakeCase": 17,
+      "other": 4
+    },
+    "commonPatterns": [
+      {
+        "type": "fileNaming",
+        "pattern": "kebabCase",
+        "percentage": 40,
+        "description": "kebab-case (소문자-하이픈)"
+      },
+      {
+        "type": "directoryStructure",
+        "pattern": "top-level",
+        "items": [
+          "db_analyzer",
+          "convention-extractor",
+          "customization-compare"
+        ],
+        "description": "최상위 디렉토리 구조"
+      },
+      {
+        "type": "extensions",
+        "pattern": "distribution",
+        "items": [
+          {
+            "ext": ".md",
+            "count": 39,
+            "percentage": 46
+          },
+          {
+            "ext": ".js",
+            "count": 15,
+            "percentage": 18
+          },
+          {
+            "ext": ".sh",
+            "count": 7,
+            "percentage": 8
+          },
+          {
+            "ext": ".ps1",
+            "count": 6,
+            "percentage": 7
+          },
+          {
+            "ext": ".json",
+            "count": 6,
+            "percentage": 7
+          }
+        ],
+        "description": "주요 파일 타입"
+      }
+    ]
+  },
+  "style": {
+    "indentation": {
+      "type": "spaces",
+      "count": 4,
+      "confidence": 50
+    },
+    "lineLength": {
+      "avg": 35,
+      "median": 32,
+      "p95": 75,
+      "max": 211,
+      "recommended": 80,
+      "distribution": {
+        "under80": 3238,
+        "under120": 3352,
+        "over120": 6
+      }
+    },
+    "quotes": {
+      "preferred": "single",
+      "confidence": 72,
+      "distribution": {
+        "single": 72,
+        "double": 3,
+        "backtick": 25
+      }
+    },
+    "semicolons": {
+      "usage": "required",
+      "confidence": 71,
+      "withSemicolon": 390,
+      "withoutSemicolon": 159
+    },
+    "braceStyle": {
+      "style": "K&R",
+      "confidence": 100,
+      "description": "Same line (K&R): function() {"
+    }
+  },
+  "naming": {
+    "functions": {
+      "count": 142,
+      "pattern": "camelCase",
+      "confidence": 100,
+      "distribution": {
+        "camelCase": 142,
+        "PascalCase": 0,
+        "snake_case": 0,
+        "UPPER_SNAKE_CASE": 0,
+        "kebab-case": 0,
+        "other": 0
+      },
+      "examples": [
+        "getTables",
+        "getCommonCodes",
+        "executeQuery",
+        "getTables",
+        "getCommonCodes",
+        "executeQuery",
+        "getTables",
+        "getCommonCodes",
+        "getTables",
+        "getCommonCodes"
+      ]
+    },
+    "variables": {
+      "count": 355,
+      "pattern": "camelCase",
+      "confidence": 96,
+      "distribution": {
+        "camelCase": 340,
+        "PascalCase": 0,
+        "snake_case": 0,
+        "UPPER_SNAKE_CASE": 14,
+        "kebab-case": 0,
+        "other": 1
+      },
+      "examples": [
+        "DEFAULT_LIMIT",
+        "limit",
+        "tedious",
+        "connection",
+        "tables",
+        "result",
+        "columns",
+        "fks",
+        "DEFAULT_CODE_PATTERNS",
+        "limit"
+      ]
+    },
+    "constants": {
+      "count": 14,
+      "pattern": "UPPER_SNAKE_CASE",
+      "confidence": 100,
+      "examples": [
+        "DEFAULT_LIMIT",
+        "DEFAULT_CODE_PATTERNS",
+        "DEFAULT_LIMIT",
+        "DEFAULT_CODE_PATTERNS",
+        "DEFAULT_LIMIT",
+        "DEFAULT_CODE_PATTERNS",
+        "DEFAULT_LIMIT",
+        "DEFAULT_SCHEMA",
+        "DEFAULT_CODE_PATTERNS",
+        "EXIT_SUCCESS"
+      ]
+    },
+    "classes": {
+      "count": 9,
+      "pattern": "PascalCase",
+      "confidence": 89,
+      "examples": [
+        "ON",
+        "CodingStyleAnalyzer",
+        "FileStructureAnalyzer",
+        "NamingConventionAnalyzer",
+        "TechStackDetector",
+        "ConventionExtractor",
+        "CodeDiffAnalyzer",
+        "StructureDiffAnalyzer",
+        "CustomizationComparer"
+      ]
+    },
+    "commonPatterns": [
+      {
+        "type": "functionPrefixes",
+        "items": [
+          {
+            "prefix": "get",
+            "count": 28
+          },
+          {
+            "prefix": "generate",
+            "count": 7
+          },
+          {
+            "prefix": "find",
+            "count": 4
+          },
+          {
+            "prefix": "check",
+            "count": 2
+          },
+          {
+            "prefix": "handle",
+            "count": 2
+          }
+        ],
+        "description": "자주 사용되는 함수명 접두사"
+      },
+      {
+        "type": "variableLength",
+        "avgLength": 9,
+        "description": "평균 변수명 길이"
+      }
+    ]
+  },
+  "techStack": {
+    "hasPackageJson": false,
+    "dependencies": {},
+    "devDependencies": {},
+    "mainLibraries": [],
+    "techStack": {
+      "language": "JavaScript",
+      "runtime": "Node.js",
+      "frameworks": [],
+      "testing": [],
+      "buildTools": [],
+      "databases": [],
+      "type": "Utility/Library"
+    }
+  }
+}

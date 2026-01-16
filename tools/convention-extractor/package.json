@@ -1,0 +1,19 @@
+{
+  "name": "convention-extractor",
+  "version": "1.0.0",
+  "description": "자동 코딩 컨벤션 추출 도구",
+  "type": "module",
+  "main": "extract-conventions.js",
+  "scripts": {
+    "extract": "node extract-conventions.js",
+    "test": "node extract-conventions.js ../.. ./reports/CONVENTIONS.md"
+  },
+  "keywords": [
+    "convention",
+    "code-style",
+    "analyzer",
+    "documentation"
+  ],
+  "author": "",
+  "license": "MIT"
+}
