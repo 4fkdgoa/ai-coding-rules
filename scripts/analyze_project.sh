@@ -21,7 +21,7 @@
 #   ./analyze_project.sh /path/to/project full --db-config .ai-analyzer.json
 #
 
-set -e
+set -euo pipefail  # Bash strict mode
 
 # 색상 정의
 RED='\033[0;31m'
@@ -959,11 +959,17 @@ main() {
         esac
     done
 
-    # 경로 유효성 확인
+    # 경로 유효성 확인 및 정규화
     local valid_paths=()
     for p in "${project_paths[@]}"; do
-        if [ -d "$p" ]; then
-            valid_paths+=("$(cd "$p" && pwd)")
+        # realpath로 경로 정규화 (있으면)
+        local normalized_path="$p"
+        if command -v realpath &> /dev/null; then
+            normalized_path=$(realpath "$p" 2>/dev/null || echo "$p")
+        fi
+
+        if [ -d "$normalized_path" ]; then
+            valid_paths+=("$(cd "$normalized_path" && pwd)")
         else
             log_warn "존재하지 않는 경로 제외: $p"
         fi

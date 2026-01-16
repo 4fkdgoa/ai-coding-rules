@@ -291,7 +291,7 @@ ai-coding-rules/
 
 ### Git Bash 사용 (권장)
 
-PowerShell은 한글 인코딩 문제가 있습니다. Git Bash를 사용하세요:
+PowerShell은 한글 인코딩 문제가 있습니다. **Git Bash를 사용하는 것을 강력히 권장합니다**:
 
 ```bash
 # Git Bash 실행 후
@@ -299,10 +299,260 @@ cd ~/.ai-rules/scripts
 ./run_claude.sh "질문"
 ```
 
-### PowerShell 사용 시
+### PowerShell 사용 시 (인코딩 문제 해결)
 
-인코딩 문제로 로그 파일에서 한글이 깨질 수 있습니다.
+PowerShell을 사용해야 한다면 다음 방법으로 UTF-8 인코딩을 설정하세요:
+
+#### 방법 1: PowerShell 7+ 사용 (권장)
+
+PowerShell 7 이상은 UTF-8을 기본으로 지원합니다.
+
+```powershell
+# PowerShell 7+ 설치 (winget)
+winget install Microsoft.PowerShell
+
+# 또는 다운로드: https://github.com/PowerShell/PowerShell/releases
+```
+
+#### 방법 2: 세션별 인코딩 설정
+
+매번 PowerShell을 시작할 때 실행:
+
+```powershell
+# UTF-8 인코딩 설정
+[Console]::OutputEncoding = [System.Text.Encoding]::UTF8
+$env:PYTHONIOENCODING = "utf-8"
+
+# chcp로 코드 페이지 변경
+chcp 65001
+```
+
+#### 방법 3: 프로필에 영구 설정
+
+PowerShell 프로필에 인코딩 설정을 추가:
+
+```powershell
+# 프로필 파일 열기
+notepad $PROFILE
+
+# 다음 내용 추가:
+[Console]::OutputEncoding = [System.Text.Encoding]::UTF8
+$OutputEncoding = [System.Text.Encoding]::UTF8
+chcp 65001 > $null
+```
+
+프로필 파일이 없다면 먼저 생성:
+
+```powershell
+New-Item -Path $PROFILE -Type File -Force
+```
+
+#### 인코딩 확인
+
+```powershell
+# 현재 코드 페이지 확인 (65001이면 UTF-8)
+chcp
+
+# 출력 인코딩 확인
+[Console]::OutputEncoding
+```
+
+#### 주의사항
+
+- Windows Terminal을 사용하면 UTF-8 지원이 더 좋습니다
+- 기존 CMD보다 PowerShell 7+ 또는 Git Bash를 권장합니다
+- 로그 파일이 여전히 깨진다면 Git Bash로 전환하세요
+
 자세한 내용은 [snippets/powershell-encoding.md](snippets/powershell-encoding.md) 참고.
+
+---
+
+## FAQ (자주 묻는 질문)
+
+### Claude Code가 멈춘 것 같아요 (Stuck)
+
+**증상:**
+- 응답이 10초 이상 멈춤
+- 프롬프트를 입력해도 반응 없음
+- 터미널이 아무 출력도 하지 않음
+
+**원인:**
+- 내부 버퍼 오버플로우 (긴 컨텍스트)
+- 무한 루프 상태
+- 네트워크 타임아웃
+
+**해결방법:**
+
+1. **Ctrl+C로 중단** 후 세션 재시작
+2. **컨텍스트 정리**:
+   ```bash
+   /clear  # 대화 이력 초기화
+   ```
+3. **파일 읽기 최소화**: 한 번에 너무 많은 파일을 읽지 마세요
+4. **작은 단위로 작업**: 큰 작업을 여러 단계로 나누기
+
+### Claude가 멈추는데 Gemini는 괜찮나요?
+
+**비교:**
+
+| 항목 | Claude Code | Gemini CLI |
+|------|-------------|-----------|
+| **Stuck 빈도** | 가끔 발생 (긴 컨텍스트) | 거의 없음 |
+| **장점** | 정확한 코드 생성, 파일 수정 도구 | 빠른 응답, 안정적 |
+| **단점** | 긴 작업 시 멈춤 가능 | 파일 수정 시 수동 작업 필요 |
+| **권장 용도** | 실제 코드 작성/수정 | 설계 검토, 분석, 리뷰 |
+
+**권장 워크플로우:**
+1. **Gemini**: 설계 및 아키텍처 검토
+2. **Claude**: 실제 코드 구현
+3. **교차 리뷰**: `cross_review.sh`로 상호 검증
+
+### 어떤 AI를 메인으로 써야 하나요?
+
+**ai_mode 선택 가이드** (CLAUDE.md 참고):
+
+#### Claude 주객체 모드 (기본)
+```yaml
+ai_mode: claude_primary
+```
+- 코드 작성/수정이 많은 경우
+- Git 커밋이 자주 필요한 경우
+- 빠른 개발 속도가 중요한 경우
+
+#### Gemini 주객체 모드
+```yaml
+ai_mode: gemini_primary
+```
+- 설계 및 분석 위주 작업
+- 여러 프로젝트 비교 분석
+- 문서화 및 리뷰 중심
+
+#### 단독 사용 모드
+```yaml
+ai_mode: single
+```
+- 하나의 AI만 사용
+- 교차 검증 불필요
+- 간단한 프로젝트
+
+### 로그가 너무 많이 쌓여요
+
+**로그 자동 정리:**
+
+스크립트가 자동으로 30일 이상 된 로그를 삭제합니다:
+- `run_gemini.sh`: 30일 자동 정리
+- `cross_review.sh`: 30일 자동 정리
+
+**수동 정리:**
+```bash
+# 7일 이상 된 로그 삭제
+find logs/ -name "*.log" -mtime +7 -delete
+
+# 특정 작업 로그만 삭제
+rm -rf logs/claude/*_test_*.log
+```
+
+### AI가 "실행했다"고 거짓말해요
+
+**거짓말 방지 규칙** (CLAUDE.md 참고):
+
+1. ✅ **로그 파일 경로 요구**
+   ```
+   AI: "테스트를 실행했습니다"
+   You: "로그 파일 경로 알려줘"
+   ```
+
+2. ✅ **실제 출력 확인**
+   ```bash
+   cat logs/claude/2026-01-14_*.log
+   ```
+
+3. ✅ **명시적 지시**
+   ```
+   "테스트 실행하고 결과 로그를 남겨줘"
+   ```
+
+### Git Bash vs PowerShell 중 뭘 써야 하나요?
+
+**권장 순서:**
+
+1. **Git Bash** (가장 권장)
+   - 인코딩 문제 없음
+   - Bash 스크립트 완벽 지원
+   - Windows/Mac/Linux 동일 경험
+
+2. **PowerShell 7+**
+   - UTF-8 기본 지원
+   - 최신 Windows Terminal과 함께 사용
+
+3. **PowerShell 5.x** (구버전)
+   - 인코딩 수동 설정 필요
+   - chcp 65001 필수
+
+4. **CMD** (비추천)
+   - Bash 스크립트 실행 불가
+   - 인코딩 문제 심함
+
+### 프로젝트별로 규칙을 다르게 하고 싶어요
+
+**방법 1: 프로젝트별 CLAUDE.md 생성**
+
+```bash
+cd ~/my-project1
+cp ~/.ai-rules/templates/java-spring.md ./CLAUDE.md
+# [프로젝트 설정] 섹션 수정
+
+cd ~/my-project2
+cp ~/.ai-rules/templates/nodejs.md ./CLAUDE.md
+# [프로젝트 설정] 섹션 수정
+```
+
+**방법 2: 템플릿 커스터마이징**
+
+```bash
+# 팀 공통 규칙
+cp ~/.ai-rules/CLAUDE.md ~/team-rules/CLAUDE-team.md
+# 수정 후 모든 프로젝트에 배포
+```
+
+### 여러 프로젝트를 동시에 분석하고 싶어요
+
+**다중 프로젝트 분석:**
+
+```bash
+# Base + Customer 프로젝트 동시 분석
+analyze_project.sh \
+  /path/to/base-solution \
+  /path/to/customer-a-custom \
+  /path/to/customer-b-custom \
+  full
+
+# 관계도 자동 생성
+# → docs/.analysis-context.md
+```
+
+**활용 예시:**
+- 공통 라이브러리 + 여러 마이크로서비스
+- Base 솔루션 + 고객사별 커스터마이징
+- 프론트엔드 + 백엔드 프로젝트
+
+### DB 스키마 분석은 어떻게 하나요?
+
+```bash
+# 1. DB 정보 없이 실행 (템플릿 생성)
+analyze_project.sh /path/to/project scan --with-db
+
+# 2. 생성된 템플릿 수정
+# → .ai-analyzer-template.json 편집
+
+# 3. .ai-analyzer.json으로 저장 후 재실행
+mv .ai-analyzer-template.json .ai-analyzer.json
+analyze_project.sh /path/to/project scan --db-config .ai-analyzer.json
+```
+
+**출력:**
+- `docs/db_schema.json`: 테이블 구조, FK, 인덱스
+- `docs/db_schema.md`: 읽기 쉬운 마크다운
 
 ---
 

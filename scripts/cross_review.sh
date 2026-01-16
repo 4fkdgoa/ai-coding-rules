@@ -4,36 +4,85 @@
 #   ./cross_review.sh claude gemini "코드 리뷰해줘" src/file.java
 #   ./cross_review.sh gemini claude "로직 검토해줘" src/main.py
 
+set -euo pipefail  # Bash strict mode
+
 FROM="$1"
 TO="$2"
 REQUEST="$3"
-FILE="$4"
+FILE="${4:-}"
+LOG_RETENTION_DAYS=30
 
+# 입력 검증
 if [ -z "$FROM" ] || [ -z "$TO" ] || [ -z "$REQUEST" ]; then
+    echo "Error: 필수 인자가 누락되었습니다."
     echo "Usage: ./cross_review.sh <from:claude|gemini> <to:claude|gemini> \"요청\" [파일]"
     exit 1
 fi
 
-if [ "$FROM" == "$TO" ]; then
-    echo "Error: From과 To가 같을 수 없습니다."
+# From/To 검증
+FROM_LOWER=$(echo "$FROM" | tr '[:upper:]' '[:lower:]')
+TO_LOWER=$(echo "$TO" | tr '[:upper:]' '[:lower:]')
+
+if [ "$FROM_LOWER" != "claude" ] && [ "$FROM_LOWER" != "gemini" ]; then
+    echo "Error: FROM은 'claude' 또는 'gemini'여야 합니다. (입력: $FROM)"
+    exit 1
+fi
+
+if [ "$TO_LOWER" != "claude" ] && [ "$TO_LOWER" != "gemini" ]; then
+    echo "Error: TO는 'claude' 또는 'gemini'여야 합니다. (입력: $TO)"
+    exit 1
+fi
+
+if [ "$FROM_LOWER" = "$TO_LOWER" ]; then
+    echo "Error: FROM과 TO가 같을 수 없습니다."
     exit 1
 fi
 
 LOG_DIR="logs/cross_review"
 mkdir -p "$LOG_DIR"
 
-TIMESTAMP=$(date +"%Y-%m-%d_%H%M%S")
-LOG_FILE="$LOG_DIR/${TIMESTAMP}_${FROM}_to_${TO}.log"
+# 오래된 로그 정리 (30일 이상)
+find "$LOG_DIR" -name "*.log" -type f -mtime +${LOG_RETENTION_DAYS} -delete 2>/dev/null || true
 
-# 파일 내용 읽기 (있으면)
+# PID 포함 로그 파일명
+TIMESTAMP=$(date +"%Y-%m-%d_%H%M%S")
+PID=$$
+LOG_FILE="$LOG_DIR/${TIMESTAMP}_${FROM_LOWER}_to_${TO_LOWER}_${PID}.log"
+
+# 파일 경로 검증 및 내용 읽기
 FILE_CONTENT=""
-if [ -n "$FILE" ] && [ -f "$FILE" ]; then
-    FILE_CONTENT=$(cat "$FILE")
-    FILE_INFO="파일: $FILE
+FILE_INFO=""
+
+if [ -n "$FILE" ]; then
+    # 경로 정규화 (realpath)
+    if command -v realpath &> /dev/null; then
+        FILE_REAL=$(realpath "$FILE" 2>/dev/null || echo "$FILE")
+    else
+        FILE_REAL="$FILE"
+    fi
+
+    # 파일 존재 확인
+    if [ ! -e "$FILE_REAL" ]; then
+        echo "Error: 파일을 찾을 수 없습니다: $FILE_REAL"
+        exit 1
+    fi
+
+    # 디렉토리가 아닌지 확인
+    if [ -d "$FILE_REAL" ]; then
+        echo "Error: 디렉토리는 리뷰할 수 없습니다: $FILE_REAL"
+        exit 1
+    fi
+
+    # 읽기 권한 확인
+    if [ ! -r "$FILE_REAL" ]; then
+        echo "Error: 파일을 읽을 수 없습니다 (권한 없음): $FILE_REAL"
+        exit 1
+    fi
+
+    FILE_CONTENT=$(cat "$FILE_REAL")
+    FILE_INFO="파일: $FILE_REAL
 파일 내용:
 $FILE_CONTENT"
-elif [ -n "$FILE" ]; then
-    FILE_INFO="파일: $FILE (파일을 찾을 수 없음)"
 else
     FILE_INFO="파일: (지정되지 않음)"
 fi
