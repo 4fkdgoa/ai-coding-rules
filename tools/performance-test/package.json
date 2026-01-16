@@ -1,0 +1,21 @@
+{
+  "name": "sdms-performance-test",
+  "version": "1.0.0",
+  "description": "SDMS 성능 분석 도구",
+  "scripts": {
+    "test": "playwright test",
+    "test:ui": "playwright test --ui",
+    "test:headed": "playwright test --headed",
+    "report": "playwright show-report reports/html"
+  },
+  "keywords": [
+    "performance",
+    "testing",
+    "playwright"
+  ],
+  "author": "",
+  "license": "ISC",
+  "dependencies": {
+    "mssql": "^12.2.0"
+  }
+}
