@@ -203,9 +203,13 @@ dual_review.sh src/PaymentService.java
 dual_review.sh src/UserService.java security
 ```
 
-### 크로스체크 자동화 (반자동 프롬프트 가이드)
+### 크로스체크 자동화
 
-설계/구현/테스트 단계별로 AI 간의 상호 검증을 수행합니다. (Human-in-the-loop 방식)
+설계/구현/테스트 단계별로 AI 간의 상호 검증을 수행합니다.
+
+#### 반자동 모드 (Human-in-the-loop)
+
+사용자가 각 단계마다 확인하고 Enter를 눌러 진행합니다.
 
 ```bash
 # 설계 크로스체크
@@ -214,6 +218,38 @@ dual_review.sh src/UserService.java security
 # 전체 파이프라인 (설계->구현->테스트)
 ./scripts/cross_check.sh full docs/request.md
 ```
+
+#### 완전 자동 모드 (NEW!)
+
+Claude와 Gemini가 자동으로 협업하여 설계-구현-테스트를 진행합니다.
+
+```bash
+# 설계만 자동 크로스체크
+./scripts/cross_check_auto.sh design docs/design_request.md
+
+# 구현만 자동 크로스체크
+./scripts/cross_check_auto.sh implement docs/impl_request.md
+
+# 전체 파이프라인 + 자동 커밋 + PR 생성
+./scripts/cross_check_auto.sh full docs/request.md output \
+  --auto-commit --auto-pr
+
+# 최대 라운드 지정
+./scripts/cross_check_auto.sh implement docs/request.md output \
+  --max-rounds 5
+```
+
+**옵션:**
+- `--auto-commit` : 승인 시 자동으로 git commit + push
+- `--auto-pr` : 승인 시 자동으로 PR 생성 (GitHub CLI 필요)
+- `--max-rounds N` : 최대 크로스체크 횟수 (기본: 3)
+
+**특징:**
+- 🤖 Claude + Gemini 자동 협업
+- 🔄 무한루프 방지 (변경사항 해시 비교)
+- ✅ 자동 승인/반려 판정
+- 📝 자동 커밋 + PR 생성
+- 📊 상세 로그 저장 (`logs/cross_check_auto/`)
 
 ---
 
@@ -267,6 +303,8 @@ ai-coding-rules/
 │   ├── run_ai.sh                # 통합 실행 스크립트 (Bash)
 │   ├── cross_review.sh          # 교차 리뷰 (Bash)
 │   ├── dual_review.sh           # 동시 리뷰 (Bash)
+│   ├── cross_check.sh           # AI 크로스체크 (반자동, Human-in-the-loop)
+│   ├── cross_check_auto.sh      # AI 크로스체크 (완전 자동, NEW!)
 │   ├── run_claude.ps1           # (PowerShell - 인코딩 이슈 있음)
 │   ├── run_gemini.ps1           # (PowerShell - 인코딩 이슈 있음)
 │   └── run_ai.ps1               # (PowerShell - 인코딩 이슈 있음)
