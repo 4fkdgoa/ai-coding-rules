@@ -1,0 +1,53 @@
+{
+  "comment": "특정 쿼리만 모니터링하는 설정 예시",
+
+  "xmlDirectory": "/path/to/eclipse-workspace-2024/AutoCRM_Samchully/src/resources/ibatis/sql",
+
+  "watchQueries": [
+    {
+      "name": "StockManagerImpl.listStock",
+      "pattern": "WITH SSI AS \\(SELECT.*FROM STOCK_ISSUE",
+      "threshold": 1000,
+      "description": "재고 목록 조회 (가장 느린 쿼리)"
+    },
+    {
+      "name": "StockManagerImpl.getStock",
+      "pattern": "SELECT.*FROM STOCK.*WHERE.*STOCK_SEQ",
+      "threshold": 500,
+      "description": "재고 단건 조회"
+    },
+    {
+      "name": "SaleConferManagerImpl.listConfer",
+      "pattern": "SELECT.*FROM SALE_CONFER",
+      "threshold": 800,
+      "description": "상담 목록 조회"
+    },
+    {
+      "name": "CustomerManagerImpl.searchCustomer",
+      "pattern": "SELECT.*FROM CUSTOMER.*WHERE.*LIKE",
+      "threshold": 1500,
+      "description": "고객 검색 (LIKE 사용)"
+    }
+  ],
+
+  "lockMonitoring": {
+    "enabled": true,
+    "checkInterval": 10,
+    "thresholds": {
+      "waitTimeMs": 5000,
+      "criticalWaitTimeMs": 10000
+    },
+    "watchTables": [
+      "STOCK",
+      "STOCK_EXT",
+      "SALE_CONFER",
+      "CUSTOMER"
+    ]
+  },
+
+  "email": {
+    "enabled": true,
+    "sendOnQueryMatch": true,
+    "sendOnLockConflict": true
+  }
+}

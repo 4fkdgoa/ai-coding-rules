@@ -6,7 +6,10 @@
     "test": "playwright test",
     "test:ui": "playwright test --ui",
     "test:headed": "playwright test --headed",
-    "report": "playwright show-report reports/html"
+    "report": "playwright show-report reports/html",
+    "monitor": "node db-monitor/db-alert-monitor.js",
+    "monitor:profile": "node db-monitor/mssql-profiler.js",
+    "monitor:test-webhook": "node -e \"const WebhookSender = require('./db-monitor/utils/webhook-sender'); const config = require('./db-monitor/config/alert-config.json'); const sender = new WebhookSender(config.webhook); sender.sendTestMessage().then(() => process.exit());\""
   },
   "keywords": [
     "performance",
@@ -16,6 +19,8 @@
   "author": "",
   "license": "ISC",
   "dependencies": {
-    "mssql": "^12.2.0"
+    "mssql": "^12.2.0",
+    "nodemailer": "^6.9.0",
+    "xml2js": "^0.6.0"
   }
 }

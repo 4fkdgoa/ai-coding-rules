@@ -1,0 +1,98 @@
+{
+  "thresholds": {
+    "critical": {
+      "executionTimeMs": 3000,
+      "cpuTimeMs": 2000,
+      "logicalReads": 50000,
+      "blockingTimeMs": 5000,
+      "description": "즉시 대응 필요 - 심각한 성능 저하"
+    },
+    "warning": {
+      "executionTimeMs": 1000,
+      "cpuTimeMs": 500,
+      "logicalReads": 10000,
+      "blockingTimeMs": 1000,
+      "description": "주의 필요 - 성능 저하 감지"
+    },
+    "info": {
+      "executionTimeMs": 500,
+      "cpuTimeMs": 300,
+      "logicalReads": 5000,
+      "blockingTimeMs": 500,
+      "description": "정보성 - 모니터링 권장"
+    }
+  },
+  "email": {
+    "enabled": true,
+    "smtp": {
+      "host": "smtp.gmail.com",
+      "port": 587,
+      "secure": false,
+      "auth": {
+        "user": "your-email@gmail.com",
+        "pass": "your-app-password"
+      }
+    },
+    "from": "DB Monitor <your-email@gmail.com>",
+    "to": [
+      "dba@company.com",
+      "dev-team@company.com"
+    ],
+    "sendOnLevels": ["critical", "warning"],
+    "throttleMinutes": 10
+  },
+  "logging": {
+    "enabled": true,
+    "directory": "./logs",
+    "retentionDays": 30,
+    "format": "json",
+    "includeQueryText": true,
+    "maxQueryTextLength": 500
+  },
+  "webhook": {
+    "enabled": false,
+    "sendOnLevels": ["critical", "warning"],
+    "throttleMinutes": 10,
+    "webhooks": [
+      {
+        "name": "Google Chat - Dev Team",
+        "type": "google-chat",
+        "url": "https://chat.googleapis.com/v1/spaces/SPACE_ID/messages?key=KEY&token=TOKEN",
+        "enabled": true
+      },
+      {
+        "name": "Slack - DBA Channel",
+        "type": "slack",
+        "url": "https://hooks.slack.com/services/YOUR/WEBHOOK/URL",
+        "enabled": false
+      },
+      {
+        "name": "Discord - Alerts Channel",
+        "type": "discord",
+        "url": "https://discord.com/api/webhooks/YOUR_WEBHOOK_ID/YOUR_WEBHOOK_TOKEN",
+        "enabled": false
+      },
+      {
+        "name": "MS Teams - Operations",
+        "type": "teams",
+        "url": "https://outlook.office.com/webhook/YOUR_WEBHOOK_URL",
+        "enabled": false
+      }
+    ]
+  },
+  "watchQueries": [],
+  "lockMonitoring": {
+    "enabled": true,
+    "accumulationMinutes": 10
+  },
+  "monitoring": {
+    "intervalSeconds": 10,
+    "enabledChecks": {
+      "slowQueries": true,
+      "blocking": true,
+      "tableScan": true,
+      "highCpu": true,
+      "deadlocks": true
+    }
+  }
+}
