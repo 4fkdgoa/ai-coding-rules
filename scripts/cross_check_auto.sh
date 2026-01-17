@@ -1,7 +1,13 @@
 #!/bin/bash
 #
-# cross_check_auto.sh - AI 크로스체크 완전 자동화 스크립트 (v2.0)
+# cross_check_auto.sh - AI 크로스체크 완전 자동화 스크립트 (v2.1)
 # Claude(Maker) <-> Gemini(Reviewer) 자동 협업
+#
+# v2.1 보안 강화 (Opus 4.5 검토 반영):
+#   - P0 FIX: Command Injection 방지 (stdin으로 프롬프트 전달)
+#   - P0 FIX: Path Traversal 방지 (proper containment check)
+#   - P0 FIX: 프롬프트 크기 제한 (MAX_PROMPT_SIZE=100KB)
+#   - P1 FIX: Static Analysis Pre-Check (shellcheck/ruff/eslint)
 #
 # 사용법:
 #   ./cross_check_auto.sh design <설계요청파일> [출력디렉토리]
@@ -105,7 +111,100 @@ validate_file_size() {
     return 0
 }
 
+# 함수: 출력 디렉토리 검증 (P0 FIX: Path Traversal 방지)
+validate_output_dir() {
+    local dir="$1"
+
+    # 절대 경로로 변환 (심볼릭 링크 해석)
+    dir=$(realpath -m "$dir" 2>/dev/null || readlink -f "$dir" 2>/dev/null || echo "$dir")
+
+    if [ -z "$dir" ]; then
+        log_error "출력 디렉토리 경로가 비어있습니다"
+        return 1
+    fi
+
+    # 현재 프로젝트 루트 (Git 루트 또는 현재 디렉토리)
+    local project_root=$(git rev-parse --show-toplevel 2>/dev/null || pwd)
+    project_root=$(realpath "$project_root")
+
+    # P0 FIX: Proper containment check (prefix 매칭 아님!)
+    # "$dir"이 "$project_root" 또는 그 하위 디렉토리인지 확인
+    if [[ "$dir" != "$project_root" && "$dir" != "$project_root/"* ]]; then
+        log_error "출력 디렉토리는 프로젝트 내부여야 합니다"
+        log_error "프로젝트 루트: $project_root"
+        log_error "요청 디렉토리: $dir"
+        return 1
+    fi
+
+    # ".." 포함 여부 확인 (realpath 후에도 추가 검증)
+    if [[ "$dir" == *".."* ]]; then
+        log_error "상위 디렉토리 참조(..)는 허용되지 않습니다: $dir"
+        return 1
+    fi
+
+    echo "$dir"
+    return 0
+}
+
+# 함수: Static Analysis Pre-Check (P1 FIX: AI 리뷰 전 자동 검사)
+run_static_analysis() {
+    local file="$1"
+    local file_type="${file##*.}"
+
+    log_step "Static Analysis 실행 중..."
+
+    local has_errors=0
+
+    case "$file_type" in
+        sh|bash)
+            if command -v shellcheck &> /dev/null; then
+                log_info "shellcheck 실행: $file"
+                if shellcheck "$file"; then
+                    log_success "shellcheck 통과"
+                else
+                    log_warn "shellcheck 경고 발견 (계속 진행)"
+                    has_errors=1
+                fi
+            else
+                log_warn "shellcheck가 설치되지 않았습니다 (건너뜀)"
+            fi
+            ;;
+        py)
+            if command -v ruff &> /dev/null; then
+                log_info "ruff 실행: $file"
+                if ruff check "$file"; then
+                    log_success "ruff 통과"
+                else
+                    log_warn "ruff 경고 발견 (계속 진행)"
+                    has_errors=1
+                fi
+            else
+                log_warn "ruff가 설치되지 않았습니다 (건너뜀)"
+            fi
+            ;;
+        js|jsx|ts|tsx)
+            if command -v eslint &> /dev/null; then
+                log_info "eslint 실행: $file"
+                if eslint "$file"; then
+                    log_success "eslint 통과"
+                else
+                    log_warn "eslint 경고 발견 (계속 진행)"
+                    has_errors=1
+                fi
+            else
+                log_warn "eslint가 설치되지 않았습니다 (건너뜀)"
+            fi
+            ;;
+        *)
+            log_info "지원하지 않는 파일 형식 (static analysis 건너뜀): .$file_type"
+            ;;
+    esac
+
+    return $has_errors
+}
+
 # 함수: Claude Code CLI 자동 호출 (재시도 포함)
+# P0 FIX: Command Injection 방지 - stdin으로 프롬프트 전달
 run_claude_auto() {
     local prompt="$1"
     local output_file="$2"
@@ -114,13 +213,25 @@ run_claude_auto() {
     log_ai "Claude ($CLAUDE_MODEL_ID) 실행 중..."
     log_info "프롬프트: ${prompt:0:100}..."
 
+    # 프롬프트 크기 제한 (P0 FIX: DoS 방지)
+    local MAX_PROMPT_SIZE=102400  # 100KB
+    if [ ${#prompt} -gt $MAX_PROMPT_SIZE ]; then
+        log_error "프롬프트 크기 초과: ${#prompt} bytes (최대 ${MAX_PROMPT_SIZE} bytes)"
+        return 1
+    fi
+
     # 안전한 임시 파일 생성 (mktemp)
     local temp_response=$(mktemp /tmp/claude_response.XXXXXX)
-    TEMP_FILES+=("$temp_response")
+    local temp_prompt=$(mktemp /tmp/claude_prompt.XXXXXX)
+    TEMP_FILES+=("$temp_response" "$temp_prompt")
+
+    # 프롬프트를 임시 파일에 작성
+    printf '%s' "$prompt" > "$temp_prompt"
 
     local retry=0
     while [ $retry -lt $MAX_RETRIES ]; do
-        if claude -m "$CLAUDE_MODEL_ID" "$prompt" > "$temp_response" 2>&1; then
+        # P0 FIX: stdin으로 전달 (command argument 사용 금지)
+        if claude -m "$CLAUDE_MODEL_ID" < "$temp_prompt" > "$temp_response" 2>&1; then
             # 성공 시 output_file로 복사
             cp "$temp_response" "$output_file"
             log_success "Claude 응답 저장: $output_file"
@@ -145,6 +256,7 @@ run_claude_auto() {
 }
 
 # 함수: Gemini CLI 자동 호출 (재시도 포함)
+# P0 FIX: Command Injection 방지 - stdin으로 프롬프트 전달
 run_gemini_auto() {
     local prompt="$1"
     local output_file="$2"
@@ -153,13 +265,25 @@ run_gemini_auto() {
     log_ai "Gemini ($GEMINI_MODEL) 실행 중..."
     log_info "프롬프트: ${prompt:0:100}..."
 
+    # 프롬프트 크기 제한 (P0 FIX: DoS 방지)
+    local MAX_PROMPT_SIZE=102400  # 100KB
+    if [ ${#prompt} -gt $MAX_PROMPT_SIZE ]; then
+        log_error "프롬프트 크기 초과: ${#prompt} bytes (최대 ${MAX_PROMPT_SIZE} bytes)"
+        return 1
+    fi
+
     # 안전한 임시 파일 생성 (mktemp)
     local temp_response=$(mktemp /tmp/gemini_response.XXXXXX)
-    TEMP_FILES+=("$temp_response")
+    local temp_prompt=$(mktemp /tmp/gemini_prompt.XXXXXX)
+    TEMP_FILES+=("$temp_response" "$temp_prompt")
+
+    # 프롬프트를 임시 파일에 작성
+    printf '%s' "$prompt" > "$temp_prompt"
 
     local retry=0
     while [ $retry -lt $MAX_RETRIES ]; do
-        if gemini -m "$GEMINI_MODEL" --yolo "$prompt" > "$temp_response" 2>&1; then
+        # P0 FIX: stdin으로 전달 (command argument 사용 금지)
+        if gemini -m "$GEMINI_MODEL" --yolo < "$temp_prompt" > "$temp_response" 2>&1; then
             cp "$temp_response" "$output_file"
             log_success "Gemini 응답 저장: $output_file"
 
@@ -765,6 +889,12 @@ main() {
     # 기본 출력 디렉토리
     output_dir="${output_dir:-output/cross_check_auto_$(get_timestamp)}"
 
+    # P0 FIX: 출력 디렉토리 검증 (Path Traversal 방지)
+    if ! output_dir=$(validate_output_dir "$output_dir"); then
+        log_error "출력 디렉토리 검증 실패"
+        exit 1
+    fi
+
     # 요청 파일 확인
     if [ ! -f "$request_file" ]; then
         log_error "요청 파일이 존재하지 않습니다: $request_file"
@@ -772,7 +902,8 @@ main() {
     fi
 
     log_info "=========================================="
-    log_info "  AI 크로스체크 완전 자동화 시스템 v2.0"
+    log_info "  AI 크로스체크 완전 자동화 시스템 v2.1"
+    log_info "  (Opus 4.5 보안 강화 적용)"
     log_info "=========================================="
     log_info "모드: $mode"
     log_info "요청 파일: $request_file"
