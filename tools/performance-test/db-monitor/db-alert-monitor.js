@@ -11,6 +11,7 @@ const EmailSender = require('./utils/email-sender');
 const WebhookSender = require('./utils/webhook-sender');
 const QueryWatcher = require('./query-watcher');
 const LockMonitor = require('./lock-monitor');
+const LockHistoryManager = require('./utils/lock-history-manager');
 
 // 설정 파일 로드
 const configPath = path.join(__dirname, 'config', 'alert-config.json');
@@ -48,8 +49,11 @@ class DBAlertMonitor {
         this.monitorInterval = null;
         this.alertCount = { critical: 0, warning: 0, info: 0 };
 
-        // Lock 누적 추적 (세션 ID → { startTime, lastSeen, data })
-        this.lockHistory = new Map();
+        // Lock 누적 추적 (LRU + 영속화)
+        this.lockHistory = new LockHistoryManager({
+            maxEntries: 10000,
+            persistInterval: 60000  // 1분마다 저장
+        });
         this.lockAccumulationThreshold = (alertConfig.lockMonitoring?.accumulationMinutes || 10) * 60 * 1000;
     }
 
@@ -88,6 +92,12 @@ class DBAlertMonitor {
         if (this.monitorInterval) {
             clearInterval(this.monitorInterval);
         }
+
+        // Lock history 저장 및 종료
+        if (this.lockHistory) {
+            this.lockHistory.shutdown();
+        }
+
         if (this.pool) {
             await this.pool.close();
             console.log('\n✅ DB 연결 종료');
@@ -156,6 +166,16 @@ class DBAlertMonitor {
                 await this.checkDeadlocks();
             }
 
+            // 7. 인덱스 사용률 체크 (추가)
+            if (this.enabledChecks.indexUsage !== false) {
+                await this.checkIndexUsage();
+            }
+
+            // 8. 버퍼 캐시 히트율 체크 (추가)
+            if (this.enabledChecks.bufferCache !== false) {
+                await this.checkBufferCacheHit();
+            }
+
             console.log(`  ✓ 체크 완료\n`);
 
         } catch (error) {
@@ -167,7 +187,9 @@ class DBAlertMonitor {
      * 느린 쿼리 체크
      */
     async checkSlowQueries() {
-        const result = await this.pool.request().query(`
+        const result = await this.pool.request()
+            .input('dbName', sql.NVarChar, dbConfig.database)
+            .query(`
             SELECT TOP 5
                 req.session_id,
                 req.status,
@@ -189,7 +211,7 @@ class DBAlertMonitor {
             CROSS APPLY sys.dm_exec_sql_text(req.sql_handle) AS qt
             WHERE req.session_id != @@SPID
             AND req.status = 'running'
-            AND DB_NAME(req.database_id) = '${dbConfig.database}'
+            AND DB_NAME(req.database_id) = @dbName
             ORDER BY req.total_elapsed_time DESC
         `);
 
@@ -218,7 +240,9 @@ class DBAlertMonitor {
      * 차단(Blocking) 체크
      */
     async checkBlocking() {
-        const result = await this.pool.request().query(`
+        const result = await this.pool.request()
+            .input('dbName', sql.NVarChar, dbConfig.database)
+            .query(`
             SELECT
                 blocked.session_id AS blocked_session,
                 blocking.session_id AS blocking_session,
@@ -240,7 +264,7 @@ class DBAlertMonitor {
             LEFT JOIN sys.dm_exec_requests blocking ON blocked.blocking_session_id = blocking.session_id
             LEFT JOIN sys.dm_exec_sql_text(blocking.sql_handle) AS qt_blocking ON 1=1
             WHERE blocked.blocking_session_id != 0
-            AND DB_NAME(blocked.database_id) = '${dbConfig.database}'
+            AND DB_NAME(blocked.database_id) = @dbName
         `);
 
         for (const row of result.recordset) {
@@ -266,7 +290,10 @@ class DBAlertMonitor {
      * 높은 CPU 사용량 체크
      */
     async checkHighCpu() {
-        const result = await this.pool.request().query(`
+        const result = await this.pool.request()
+            .input('dbName', sql.NVarChar, dbConfig.database)
+            .input('cpuThreshold', sql.Int, this.thresholds.info.cpuTimeMs)
+            .query(`
             SELECT TOP 5
                 req.session_id,
                 req.cpu_time,
@@ -282,8 +309,8 @@ class DBAlertMonitor {
             CROSS APPLY sys.dm_exec_sql_text(req.sql_handle) AS qt
             WHERE req.session_id != @@SPID
             AND req.status = 'running'
-            AND DB_NAME(req.database_id) = '${dbConfig.database}'
-            AND req.cpu_time > ${this.thresholds.info.cpuTimeMs}
+            AND DB_NAME(req.database_id) = @dbName
+            AND req.cpu_time > @cpuThreshold
             ORDER BY req.cpu_time DESC
         `);
 
@@ -444,6 +471,94 @@ class DBAlertMonitor {
     }
 
     /**
+     * 인덱스 사용률 체크 (미사용 인덱스 감지)
+     */
+    async checkIndexUsage() {
+        const result = await this.pool.request()
+            .input('dbName', sql.NVarChar, dbConfig.database)
+            .query(`
+            SELECT
+                OBJECT_NAME(i.object_id) AS table_name,
+                i.name AS index_name,
+                i.type_desc AS index_type,
+                ISNULL(ius.user_seeks, 0) AS user_seeks,
+                ISNULL(ius.user_scans, 0) AS user_scans,
+                ISNULL(ius.user_lookups, 0) AS user_lookups,
+                ISNULL(ius.user_updates, 0) AS user_updates
+            FROM sys.indexes i
+            LEFT JOIN sys.dm_db_index_usage_stats ius
+                ON i.object_id = ius.object_id
+                AND i.index_id = ius.index_id
+                AND ius.database_id = DB_ID(@dbName)
+            WHERE i.object_id > 100  -- 시스템 테이블 제외
+            AND i.is_primary_key = 0
+            AND i.is_unique_constraint = 0
+            AND ISNULL(ius.user_seeks, 0) = 0
+            AND ISNULL(ius.user_scans, 0) = 0
+            AND ISNULL(ius.user_lookups, 0) = 0
+            AND ius.user_updates > 0  -- 업데이트는 있지만 조회는 없음
+        `);
+
+        for (const row of result.recordset) {
+            await this.createAlert({
+                type: 'unused_index',
+                level: 'info',
+                message: `미사용 인덱스 감지: ${row.table_name}.${row.index_name}`,
+                database: dbConfig.database,
+                executionTimeMs: 0,
+                queryText: `-- 미사용 인덱스 제거 고려\nDROP INDEX ${row.index_name} ON ${row.table_name};`,
+                indexDetails: {
+                    tableName: row.table_name,
+                    indexName: row.index_name,
+                    indexType: row.index_type,
+                    userUpdates: row.user_updates
+                }
+            });
+        }
+    }
+
+    /**
+     * 버퍼 캐시 히트율 체크
+     */
+    async checkBufferCacheHit() {
+        const result = await this.pool.request()
+            .input('dbName', sql.NVarChar, dbConfig.database)
+            .query(`
+            SELECT
+                COUNT(*) AS total_pages,
+                SUM(CASE WHEN is_modified = 1 THEN 1 ELSE 0 END) AS dirty_pages,
+                SUM(CASE WHEN is_modified = 0 THEN 1 ELSE 0 END) AS clean_pages,
+                (CAST(SUM(CASE WHEN is_modified = 0 THEN 1 ELSE 0 END) AS FLOAT) /
+                    NULLIF(COUNT(*), 0)) * 100 AS cache_hit_ratio
+            FROM sys.dm_os_buffer_descriptors
+            WHERE database_id = DB_ID(@dbName)
+        `);
+
+        if (result.recordset.length > 0) {
+            const row = result.recordset[0];
+            const hitRatio = row.cache_hit_ratio || 0;
+
+            // 캐시 히트율이 90% 미만이면 경고
+            if (hitRatio < 90) {
+                await this.createAlert({
+                    type: 'low_cache_hit',
+                    level: 'warning',
+                    message: `낮은 버퍼 캐시 히트율: ${hitRatio.toFixed(2)}%`,
+                    database: dbConfig.database,
+                    executionTimeMs: 0,
+                    queryText: `-- 버퍼 캐시 상태\n-- 히트율: ${hitRatio.toFixed(2)}%\n-- 더티 페이지: ${row.dirty_pages}\n-- 클린 페이지: ${row.clean_pages}`,
+                    cacheDetails: {
+                        totalPages: row.total_pages,
+                        dirtyPages: row.dirty_pages,
+                        cleanPages: row.clean_pages,
+                        cacheHitRatio: hitRatio
+                    }
+                });
+            }
+        }
+    }
+
+    /**
      * Lock 누적 추적 (장시간 유지되는 Lock 감지)
      */
     async checkLockAccumulation() {
@@ -459,7 +574,7 @@ class DBAlertMonitor {
 
             if (!this.lockHistory.has(key)) {
                 // 새로운 Lock 충돌 발견 → 추적 시작
-                this.lockHistory.set(key, {
+                this.lockHistory.add(key, {
                     startTime: now,
                     lastSeen: now,
                     data: conflict
@@ -499,6 +614,9 @@ class DBAlertMonitor {
                     // 알림 후 히스토리 갱신 (재알림 방지: 다시 10분 후)
                     history.startTime = now;
                 }
+
+                // 업데이트된 데이터 저장
+                this.lockHistory.add(key, history);
             }
         }
 
@@ -533,6 +651,16 @@ class DBAlertMonitor {
             console.log(`  총 알림: ${stats.totalAlerts}건`);
             console.log(`  평균 실행 시간: ${stats.avgExecutionTime}ms`);
             console.log(`  최대 실행 시간: ${stats.maxExecutionTime}ms`);
+        }
+
+        // Lock history 통계
+        if (this.lockHistory) {
+            const lockStats = this.lockHistory.getStats();
+            console.log(`\n🔒 Lock History 통계`);
+            console.log(`  추적 중인 Lock: ${lockStats.totalEntries}개`);
+            console.log(`  메모리 사용률: ${lockStats.usagePercent}%`);
+            console.log(`  평균 유지 시간: ${Math.floor(lockStats.avgDuration / 1000)}초`);
+            console.log(`  최대 유지 시간: ${Math.floor(lockStats.maxDuration / 1000)}초`);
         }
     }
 }
