@@ -1,24 +1,27 @@
 #!/bin/bash
 #
-# cross_check_auto.sh - AI 크로스체크 완전 자동화 스크립트
+# cross_check_auto.sh - AI 크로스체크 완전 자동화 스크립트 (v2.0)
 # Claude(Maker) <-> Gemini(Reviewer) 자동 협업
 #
 # 사용법:
 #   ./cross_check_auto.sh design <설계요청파일> [출력디렉토리]
 #   ./cross_check_auto.sh implement <구현요청파일> [출력디렉토리]
-#   ./cross_check_auto.sh full <요청파일> [출력디렉토리] [--auto-commit] [--auto-pr]
+#   ./cross_check_auto.sh full <요청파일> [출력디렉토리] [--max-rounds N]
 #
 # 옵션:
-#   --auto-commit  : 승인 시 자동 커밋
-#   --auto-pr      : 승인 시 자동 PR 생성
 #   --max-rounds N : 최대 크로스체크 횟수 (기본: 3)
 #
 # 예시:
-#   ./cross_check_auto.sh design docs/design_request.md docs/output
-#   ./cross_check_auto.sh full docs/request.md output --auto-commit --auto-pr
+#   ./cross_check_auto.sh design docs/design_request.md
+#   ./cross_check_auto.sh full docs/request.md output --max-rounds 5
+#
+# 주의:
+#   - 이 스크립트는 자동으로 커밋하지 않습니다
+#   - 모든 테스트 완료 후 사용자가 직접 검토하고 커밋하세요
 #
 
 set -e
+set -o pipefail  # 파이프라인에서 에러 발생 시 즉시 종료
 
 # 색상 정의
 RED='\033[0;31m'
@@ -33,10 +36,13 @@ NC='\033[0m'
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 MAX_ROUNDS=3  # 무한루프 방지: 최대 크로스체크 횟수
 LOG_DIR="logs/cross_check_auto"
-CLAUDE_MODEL="sonnet"  # 구현에는 Sonnet 사용 (빠르고 효율적)
+CLAUDE_MODEL_ID="claude-sonnet-4-5"  # 명시적인 전체 모델 ID
 GEMINI_MODEL="gemini-3-pro-preview"
-AUTO_COMMIT=false
-AUTO_PR=false
+MAX_RETRIES=3  # API 재시도 횟수
+RETRY_DELAY=5  # 재시도 대기 시간 (초)
+
+# 임시 파일 목록 (정리용)
+TEMP_FILES=()
 
 # 함수: 로그 출력
 log_info() { echo -e "${BLUE}[INFO]${NC} $1"; }
@@ -45,6 +51,18 @@ log_warn() { echo -e "${YELLOW}[WARN]${NC} $1"; }
 log_error() { echo -e "${RED}[ERROR]${NC} $1"; }
 log_step() { echo -e "${CYAN}[STEP]${NC} $1"; }
 log_ai() { echo -e "${MAGENTA}[AI]${NC} $1"; }
+
+# 함수: 임시 파일 정리 (trap)
+cleanup() {
+    if [ ${#TEMP_FILES[@]} -gt 0 ]; then
+        log_info "임시 파일 정리 중..."
+        for temp_file in "${TEMP_FILES[@]}"; do
+            rm -f "$temp_file" 2>/dev/null || true
+        done
+    fi
+}
+
+trap cleanup EXIT INT TERM
 
 # 함수: 사용법
 usage() {
@@ -57,11 +75,11 @@ usage() {
     echo "  full       - 전체 파이프라인 (설계 → 구현 → 테스트)"
     echo ""
     echo "옵션:"
-    echo "  --auto-commit     : 승인 시 자동 커밋"
-    echo "  --auto-pr         : 승인 시 자동 PR 생성"
     echo "  --max-rounds N    : 최대 크로스체크 횟수 (기본: 3)"
     echo ""
-    echo "무한루프 방지: 최대 ${MAX_ROUNDS}회 교차검증 후 중단"
+    echo "주의:"
+    echo "  - 자동 커밋하지 않음 (사용자가 직접 검토 후 커밋)"
+    echo "  - 무한루프 방지: 최대 ${MAX_ROUNDS}회 교차검증 후 중단"
     exit 1
 }
 
@@ -70,38 +88,63 @@ get_timestamp() {
     date +"%Y-%m-%d_%H%M%S"
 }
 
-# 함수: Claude Code CLI 자동 호출 (파일 기반)
+# 함수: 파일 크기 검증
+validate_file_size() {
+    local file="$1"
+    local max_size=102400  # 100KB
+
+    if [ ! -f "$file" ]; then
+        return 1
+    fi
+
+    local file_size=$(stat -c%s "$file" 2>/dev/null || stat -f%z "$file" 2>/dev/null)
+    if [ "$file_size" -gt "$max_size" ]; then
+        log_error "파일이 너무 큽니다: $file (${file_size} bytes, 최대 ${max_size} bytes)"
+        return 1
+    fi
+    return 0
+}
+
+# 함수: Claude Code CLI 자동 호출 (재시도 포함)
 run_claude_auto() {
     local prompt="$1"
     local output_file="$2"
     local task_name="${3:-claude_task}"
 
-    log_ai "Claude ($CLAUDE_MODEL) 실행 중..."
+    log_ai "Claude ($CLAUDE_MODEL_ID) 실행 중..."
     log_info "프롬프트: ${prompt:0:100}..."
 
-    # Claude CLI 실행 (응답을 파일로 저장)
-    local temp_response="/tmp/claude_response_$$.txt"
+    # 안전한 임시 파일 생성 (mktemp)
+    local temp_response=$(mktemp /tmp/claude_response.XXXXXX)
+    TEMP_FILES+=("$temp_response")
 
-    if claude -m "claude-$CLAUDE_MODEL-4-5" "$prompt" > "$temp_response" 2>&1; then
-        # 성공 시 output_file로 복사
-        cp "$temp_response" "$output_file"
-        log_success "Claude 응답 저장: $output_file"
+    local retry=0
+    while [ $retry -lt $MAX_RETRIES ]; do
+        if claude -m "$CLAUDE_MODEL_ID" "$prompt" > "$temp_response" 2>&1; then
+            # 성공 시 output_file로 복사
+            cp "$temp_response" "$output_file"
+            log_success "Claude 응답 저장: $output_file"
 
-        # 로그 디렉토리에도 백업
-        mkdir -p "$LOG_DIR"
-        cp "$temp_response" "$LOG_DIR/$(get_timestamp)_${task_name}.log"
+            # 로그 디렉토리에도 백업
+            mkdir -p "$LOG_DIR"
+            cp "$temp_response" "$LOG_DIR/$(get_timestamp)_${task_name}.log"
 
-        rm -f "$temp_response"
-        return 0
-    else
-        log_error "Claude 실행 실패!"
-        cat "$temp_response"
-        rm -f "$temp_response"
-        return 1
-    fi
+            return 0
+        fi
+
+        retry=$((retry + 1))
+        if [ $retry -lt $MAX_RETRIES ]; then
+            log_warn "Claude 실행 실패 (시도 $retry/$MAX_RETRIES). ${RETRY_DELAY}초 후 재시도..."
+            sleep $RETRY_DELAY
+        fi
+    done
+
+    log_error "Claude 실행 최종 실패!"
+    cat "$temp_response"
+    return 1
 }
 
-# 함수: Gemini CLI 자동 호출 (파일 기반)
+# 함수: Gemini CLI 자동 호출 (재시도 포함)
 run_gemini_auto() {
     local prompt="$1"
     local output_file="$2"
@@ -110,28 +153,36 @@ run_gemini_auto() {
     log_ai "Gemini ($GEMINI_MODEL) 실행 중..."
     log_info "프롬프트: ${prompt:0:100}..."
 
-    # Gemini CLI 실행
-    local temp_response="/tmp/gemini_response_$$.txt"
+    # 안전한 임시 파일 생성 (mktemp)
+    local temp_response=$(mktemp /tmp/gemini_response.XXXXXX)
+    TEMP_FILES+=("$temp_response")
 
-    if gemini -m "$GEMINI_MODEL" --yolo "$prompt" > "$temp_response" 2>&1; then
-        cp "$temp_response" "$output_file"
-        log_success "Gemini 응답 저장: $output_file"
+    local retry=0
+    while [ $retry -lt $MAX_RETRIES ]; do
+        if gemini -m "$GEMINI_MODEL" --yolo "$prompt" > "$temp_response" 2>&1; then
+            cp "$temp_response" "$output_file"
+            log_success "Gemini 응답 저장: $output_file"
 
-        # 로그 디렉토리에도 백업
-        mkdir -p "$LOG_DIR"
-        cp "$temp_response" "$LOG_DIR/$(get_timestamp)_${task_name}.log"
+            # 로그 디렉토리에도 백업
+            mkdir -p "$LOG_DIR"
+            cp "$temp_response" "$LOG_DIR/$(get_timestamp)_${task_name}.log"
 
-        rm -f "$temp_response"
-        return 0
-    else
-        log_error "Gemini 실행 실패!"
-        cat "$temp_response"
-        rm -f "$temp_response"
-        return 1
-    fi
+            return 0
+        fi
+
+        retry=$((retry + 1))
+        if [ $retry -lt $MAX_RETRIES ]; then
+            log_warn "Gemini 실행 실패 (시도 $retry/$MAX_RETRIES). ${RETRY_DELAY}초 후 재시도..."
+            sleep $RETRY_DELAY
+        fi
+    done
+
+    log_error "Gemini 실행 최종 실패!"
+    cat "$temp_response"
+    return 1
 }
 
-# 함수: 결과 파일에서 승인/반려 판정
+# 함수: 결과 파일에서 승인/반려 판정 (개선 버전)
 check_approval() {
     local review_file="$1"
 
@@ -140,100 +191,134 @@ check_approval() {
         return 1
     fi
 
-    # 승인 키워드 확인
-    if grep -qiE "(승인|APPROVED|LGTM|통과|문제.*없)" "$review_file" 2>/dev/null; then
-        # 반려 키워드가 없으면 승인
-        if ! grep -qiE "(반려|REJECTED|수정.*필요|문제.*있|개선.*필요)" "$review_file" 2>/dev/null; then
-            return 0  # 승인
-        fi
+    # 파일의 마지막 20줄에서만 판정 키워드 검색 (결론 부분)
+    local conclusion=$(tail -20 "$review_file")
+
+    # 명시적 반려 키워드 우선 확인
+    if echo "$conclusion" | grep -qiE "\[(반려|수정.*필요|REJECTED)\]"; then
+        log_info "판정: 반려 (명시적 키워드 발견)"
+        return 1  # 명시적 반려
     fi
-    return 1  # 반려 또는 수정 필요
+
+    # 명시적 승인 키워드 확인
+    if echo "$conclusion" | grep -qiE "\[(승인|APPROVED|LGTM)\]"; then
+        log_info "판정: 승인 (명시적 키워드 발견)"
+        return 0  # 명시적 승인
+    fi
+
+    # 명시적 판정이 없으면 반려 처리 (안전 우선)
+    log_warn "명시적 판정 키워드가 없습니다. 안전을 위해 반려 처리합니다."
+    log_warn "리뷰 파일 마지막 부분에 [승인] 또는 [수정 필요]를 명시하도록 AI에게 요청하세요."
+    return 1
 }
 
 # 함수: 변경사항 해시 계산 (무한루프 방지)
 get_changes_hash() {
-    git diff HEAD 2>/dev/null | md5sum | awk '{print $1}'
+    git diff HEAD 2>/dev/null | md5sum 2>/dev/null | awk '{print $1}' || echo "no_git"
 }
 
-# 함수: 변경사항이 이전과 동일한지 확인
-is_same_changes() {
-    local prev_hash="$1"
-    local curr_hash=$(get_changes_hash)
+# 함수: 커밋 가이드 출력
+show_commit_guide() {
+    local phase="$1"  # design, implement, test, full
+    local output_dir="$2"
 
-    [ "$prev_hash" = "$curr_hash" ]
-}
-
-# 함수: 자동 커밋
-auto_commit() {
-    local commit_msg="$1"
-
-    if [ "$AUTO_COMMIT" != "true" ]; then
-        log_info "자동 커밋 비활성화 (--auto-commit 플래그 필요)"
-        return 0
-    fi
-
-    log_step "자동 커밋 시작..."
+    echo ""
+    log_success "=========================================="
+    log_success "  AI 크로스체크 완료!"
+    log_success "=========================================="
+    echo ""
+    log_info "결과 디렉토리: $output_dir"
+    echo ""
 
     # 변경사항 확인
-    if ! git diff --quiet || ! git diff --cached --quiet; then
-        log_info "변경된 파일 목록:"
-        git status --short
-
-        # 모든 변경사항 스테이징
-        git add -A
-
-        # 커밋
-        if git commit -m "$commit_msg"; then
-            log_success "커밋 완료: $commit_msg"
-
-            # 원격 저장소로 푸시
-            local current_branch=$(git branch --show-current)
-            if git push -u origin "$current_branch" 2>&1; then
-                log_success "푸시 완료: origin/$current_branch"
-                return 0
-            else
-                log_warn "푸시 실패 - 수동으로 푸시하세요"
-                return 1
-            fi
-        else
-            log_error "커밋 실패"
-            return 1
-        fi
+    if git diff --quiet && git diff --cached --quiet; then
+        log_info "변경사항 없음 (설계 단계이거나 코드 변경이 없음)"
     else
-        log_info "변경사항 없음 - 커밋 생략"
-        return 0
+        log_warn "변경된 파일이 있습니다. 검토 후 커밋하세요."
+        echo ""
+        echo "변경된 파일 목록:"
+        git status --short
+        echo ""
+
+        # 민감 파일 경고
+        local sensitive=$(git status --porcelain | grep -E '(\\.env|\\.key|credential|secret|password|token)' || true)
+        if [ -n "$sensitive" ]; then
+            log_error "⚠️  민감 정보 파일 감지!"
+            echo "$sensitive"
+            log_error "커밋 전에 반드시 확인하세요!"
+            echo ""
+        fi
+
+        # 추천 커밋 메시지
+        local commit_msg=""
+        case "$phase" in
+            design)
+                commit_msg="feat: add design document (AI cross-checked by Claude + Gemini)"
+                ;;
+            implement)
+                commit_msg="feat: implement feature (AI cross-checked by Claude + Gemini)"
+                ;;
+            test)
+                commit_msg="test: add tests (AI cross-checked by Claude + Gemini)"
+                ;;
+            full)
+                commit_msg="feat: complete feature with design, implementation, and tests (AI cross-checked)"
+                ;;
+        esac
+
+        log_info "추천 커밋 명령어:"
+        echo ""
+        echo "  git add -A"
+        echo "  git commit -m \"$commit_msg\""
+        echo "  git push"
+        echo ""
     fi
+
+    log_info "상세 로그: $LOG_DIR"
+    log_info "테스트 리포트: $output_dir"
+    echo ""
 }
 
-# 함수: 자동 PR 생성
-auto_create_pr() {
-    local pr_title="$1"
-    local pr_body="$2"
+# 함수: 테스트 결과 문서 생성
+generate_test_report() {
+    local output_dir="$1"
+    local round="$2"
+    local test_result="$3"
+    local review_file="$4"
 
-    if [ "$AUTO_PR" != "true" ]; then
-        log_info "자동 PR 생성 비활성화 (--auto-pr 플래그 필요)"
-        return 0
-    fi
+    local report_file="$output_dir/TEST_REPORT_v${round}.md"
 
-    # gh CLI 확인
-    if ! command -v gh &> /dev/null; then
-        log_warn "GitHub CLI (gh) not found - PR 생성 생략"
-        log_info "설치: https://cli.github.com/"
-        return 1
-    fi
+    cat > "$report_file" <<EOF
+# 테스트 리포트 - Round $round
 
-    log_step "자동 PR 생성 시작..."
+**생성 시각**: $(date '+%Y-%m-%d %H:%M:%S')
 
-    local current_branch=$(git branch --show-current)
+---
 
-    # PR 생성
-    if gh pr create --title "$pr_title" --body "$pr_body" 2>&1; then
-        log_success "PR 생성 완료"
-        return 0
-    else
-        log_warn "PR 생성 실패 - 수동으로 생성하세요"
-        return 1
-    fi
+## 1. 테스트 실행 결과
+
+\`\`\`
+$(cat "$test_result" 2>/dev/null || echo "테스트 결과 없음")
+\`\`\`
+
+---
+
+## 2. Gemini 리뷰 결과
+
+$(cat "$review_file" 2>/dev/null || echo "리뷰 없음")
+
+---
+
+## 3. 판정
+
+$(if check_approval "$review_file"; then echo "✅ **승인**"; else echo "❌ **수정 필요**"; fi)
+
+---
+
+*이 리포트는 cross_check_auto.sh에 의해 자동 생성되었습니다.*
+EOF
+
+    log_success "테스트 리포트 생성: $report_file"
 }
 
 # 함수: 설계 크로스체크 (자동)
@@ -247,16 +332,28 @@ cross_check_design_auto() {
     log_info "요청 파일: $request_file"
     log_info "출력 디렉토리: $output_dir"
 
+    # 파일 크기 검증
+    if ! validate_file_size "$request_file"; then
+        return 1
+    fi
+
     mkdir -p "$output_dir"
     mkdir -p "$LOG_DIR"
-
-    local timestamp=$(get_timestamp)
 
     while [ $round -le $MAX_ROUNDS ]; do
         log_step "--- Round $round / $MAX_ROUNDS ---"
 
         local design_file="$output_dir/design_v${round}.md"
         local review_file="$output_dir/design_review_v${round}.md"
+
+        # 무한루프 방지: 변경사항 해시 비교
+        local curr_hash=$(get_changes_hash)
+        if [ $round -gt 1 ] && [ -n "$prev_hash" ] && [ "$curr_hash" = "$prev_hash" ]; then
+            log_error "변경사항 없음 - 무한루프 감지!"
+            log_error "이전 라운드와 동일한 상태입니다."
+            return 1
+        fi
+        prev_hash="$curr_hash"
 
         # Step 1: Claude가 설계 작성
         local design_prompt
@@ -304,7 +401,7 @@ $(cat "$request_file")
 4. 잠재적 문제점
 5. 보안 고려사항
 
-검토 결과를 작성하고, 마지막에 반드시 다음 중 하나를 명시해줘:
+검토 결과를 작성하고, 마지막 줄에 반드시 다음 중 하나를 명시해줘:
 - [승인] : 설계가 적합함
 - [수정 필요] : 개선이 필요함 (구체적인 수정 사항 명시)"
 
@@ -320,9 +417,6 @@ $(cat "$request_file")
             # 최종 파일로 복사
             cp "$design_file" "$output_dir/design_final.md"
             log_success "최종 설계서: $output_dir/design_final.md"
-
-            # 자동 커밋
-            auto_commit "feat: add design document (approved by Gemini, round $round)"
 
             return 0
         fi
@@ -356,10 +450,12 @@ cross_check_implement_auto() {
     log_info "요청 파일: $request_file"
     log_info "출력 디렉토리: $output_dir"
 
+    if ! validate_file_size "$request_file"; then
+        return 1
+    fi
+
     mkdir -p "$output_dir"
     mkdir -p "$LOG_DIR"
-
-    local timestamp=$(get_timestamp)
 
     while [ $round -le $MAX_ROUNDS ]; do
         log_step "--- Round $round / $MAX_ROUNDS ---"
@@ -367,9 +463,9 @@ cross_check_implement_auto() {
         local impl_log="$output_dir/impl_v${round}.log"
         local review_file="$output_dir/impl_review_v${round}.md"
 
-        # 현재 변경사항 해시 (무한루프 방지)
+        # 무한루프 방지: 변경사항 해시 비교
         local curr_hash=$(get_changes_hash)
-        if [ -n "$prev_hash" ] && [ "$curr_hash" = "$prev_hash" ]; then
+        if [ $round -gt 1 ] && [ -n "$prev_hash" ] && [ "$curr_hash" = "$prev_hash" ]; then
             log_error "변경사항 없음 - 무한루프 감지!"
             log_error "이전 라운드와 동일한 변경사항입니다."
             return 1
@@ -440,7 +536,7 @@ $(cat "$request_file")
 4. 성능 이슈
 5. 테스트 커버리지
 
-검토 결과를 작성하고, 마지막에 반드시 다음 중 하나를 명시해줘:
+검토 결과를 작성하고, 마지막 줄에 반드시 다음 중 하나를 명시해줘:
 - [승인] : 구현이 적합함
 - [수정 필요] : 개선이 필요함 (구체적인 수정 사항 명시)"
 
@@ -452,26 +548,6 @@ $(cat "$request_file")
         # Step 4: 승인 여부 확인
         if check_approval "$review_file"; then
             log_success "✓ 구현 승인됨! (Round $round)"
-
-            # 자동 커밋
-            auto_commit "feat: implement feature (approved by Gemini, round $round)"
-
-            # 자동 PR 생성
-            local pr_body="## Summary
-AI 크로스체크를 통해 구현 완료 (Claude + Gemini)
-
-- 총 라운드: $round
-- 최종 승인: Gemini
-- 리뷰 파일: $review_file
-
-## Changes
-$(cat "$diff_file" 2>/dev/null || echo "변경 파일 목록 없음")
-
-## Review Notes
-$(cat "$review_file" | head -20)"
-
-            auto_create_pr "feat: implement feature (AI cross-checked)" "$pr_body"
-
             return 0
         fi
 
@@ -493,20 +569,23 @@ $(cat "$review_file" | head -20)"
     return 1
 }
 
-# 함수: 테스트 크로스체크 (자동)
+# 함수: 테스트 크로스체크 (자동, 강화된 로깅)
 cross_check_test_auto() {
     local request_file="$1"
     local output_dir="$2"
     local round=1
+    local prev_hash=""
 
     log_step "=== 테스트 크로스체크 시작 (자동 모드) ==="
     log_info "요청 파일: $request_file"
     log_info "출력 디렉토리: $output_dir"
 
+    if ! validate_file_size "$request_file"; then
+        return 1
+    fi
+
     mkdir -p "$output_dir"
     mkdir -p "$LOG_DIR"
-
-    local timestamp=$(get_timestamp)
 
     while [ $round -le $MAX_ROUNDS ]; do
         log_step "--- Round $round / $MAX_ROUNDS ---"
@@ -514,7 +593,16 @@ cross_check_test_auto() {
         local test_result="$output_dir/test_result_v${round}.log"
         local review_file="$output_dir/test_review_v${round}.md"
 
-        # Step 1: Claude가 테스트 작성 및 실행
+        # 무한루프 방지: 변경사항 해시 비교
+        local curr_hash=$(get_changes_hash)
+        if [ $round -gt 1 ] && [ -n "$prev_hash" ] && [ "$curr_hash" = "$prev_hash" ]; then
+            log_error "변경사항 없음 - 무한루프 감지!"
+            log_error "이전 라운드와 동일한 상태입니다."
+            return 1
+        fi
+        prev_hash="$curr_hash"
+
+        # Step 1: Claude가 테스트 작성 및 실행 (상세 로깅)
         local test_prompt
         if [ $round -eq 1 ]; then
             test_prompt="다음 설계/구현에 대한 테스트를 작성하고 실행해줘:
@@ -527,14 +615,30 @@ $(cat "$request_file")
 3. 에러 처리 테스트
 4. Mock/Stub 적절히 활용
 
-테스트 작성 후 실행하고, 실행 결과(성공/실패 로그)를 출력해줘."
+테스트 작성 후 실행하고, 다음 형식으로 결과를 출력해줘:
+
+## 테스트 케이스 1: [테스트명]
+- 입력 데이터: [입력값]
+- 예상 결과: [예상값]
+- 실제 결과: [실제값]
+- 상태: [PASS/FAIL]
+
+## 테스트 케이스 2: ...
+(각 테스트마다 위 형식 반복)
+
+## 전체 요약
+- 총 테스트: N개
+- 성공: N개
+- 실패: N개
+- 커버리지: N%
+"
         else
             local prev_review="$output_dir/test_review_v$((round-1)).md"
             test_prompt="이전 테스트에 대한 피드백:
 
 $(cat "$prev_review")
 
-위 피드백을 반영하여 테스트를 수정하고 실행해줘. 실행 결과를 출력해줘."
+위 피드백을 반영하여 테스트를 수정하고 실행해줘. 실행 결과를 위와 동일한 형식으로 출력해줘."
         fi
 
         # Claude 실행
@@ -552,13 +656,13 @@ $(cat "$test_result")
 $(cat "$request_file")
 
 검토 항목:
-1. 테스트 커버리지 충분성
-2. 엣지 케이스 처리
+1. 테스트 커버리지 충분성 (엣지 케이스 포함 여부)
+2. 각 테스트 케이스의 입력/예상/실제 결과 적절성
 3. 테스트 코드 가독성
 4. Mock/Stub 적절성
 5. 실패한 테스트가 있다면 원인 분석
 
-검토 결과를 작성하고, 마지막에 반드시 다음 중 하나를 명시해줘:
+검토 결과를 작성하고, 마지막 줄에 반드시 다음 중 하나를 명시해줘:
 - [승인] : 테스트가 적합함
 - [수정 필요] : 개선이 필요함 (구체적인 수정 사항 명시)"
 
@@ -567,13 +671,12 @@ $(cat "$request_file")
             return 1
         fi
 
-        # Step 3: 승인 여부 확인
+        # Step 3: 테스트 리포트 생성
+        generate_test_report "$output_dir" "$round" "$test_result" "$review_file"
+
+        # Step 4: 승인 여부 확인
         if check_approval "$review_file"; then
             log_success "✓ 테스트 승인됨! (Round $round)"
-
-            # 자동 커밋
-            auto_commit "test: add tests (approved by Gemini, round $round)"
-
             return 0
         fi
 
@@ -602,6 +705,7 @@ run_full_pipeline_auto() {
 
     log_step "=== 전체 크로스체크 파이프라인 (자동) ==="
     log_info "설계 → 구현 → 테스트 순서로 진행합니다."
+    echo ""
 
     # 1. 설계
     log_step "[Phase 1/3] 설계 크로스체크"
@@ -624,30 +728,6 @@ run_full_pipeline_auto() {
         return 1
     fi
 
-    log_success "=========================================="
-    log_success "전체 파이프라인 완료!"
-    log_success "=========================================="
-
-    # 최종 PR 생성 (아직 안 했다면)
-    if [ "$AUTO_PR" = "true" ]; then
-        local pr_body="## Summary
-AI 크로스체크 파이프라인 완료 (Claude + Gemini)
-
-- ✅ 설계 승인
-- ✅ 구현 승인
-- ✅ 테스트 승인
-
-## Pipeline Phases
-1. Design: $output_dir/design/design_final.md
-2. Implementation: $output_dir/impl/
-3. Testing: $output_dir/test/
-
-## Quality Assurance
-모든 단계에서 Gemini의 코드 리뷰 승인을 받았습니다."
-
-        auto_create_pr "feat: complete feature with AI cross-check pipeline" "$pr_body"
-    fi
-
     return 0
 }
 
@@ -660,14 +740,6 @@ main() {
 
     while [[ $# -gt 0 ]]; do
         case "$1" in
-            --auto-commit)
-                AUTO_COMMIT=true
-                shift
-                ;;
-            --auto-pr)
-                AUTO_PR=true
-                shift
-                ;;
             --max-rounds)
                 MAX_ROUNDS="$2"
                 shift 2
@@ -700,35 +772,52 @@ main() {
     fi
 
     log_info "=========================================="
-    log_info "  AI 크로스체크 완전 자동화 시스템"
+    log_info "  AI 크로스체크 완전 자동화 시스템 v2.0"
     log_info "=========================================="
     log_info "모드: $mode"
     log_info "요청 파일: $request_file"
     log_info "출력 디렉토리: $output_dir"
     log_info "최대 라운드: $MAX_ROUNDS"
-    log_info "자동 커밋: $AUTO_COMMIT"
-    log_info "자동 PR: $AUTO_PR"
     log_info "=========================================="
     echo ""
 
+    local result=0
     case "$mode" in
         design)
-            cross_check_design_auto "$request_file" "$output_dir"
+            if cross_check_design_auto "$request_file" "$output_dir"; then
+                show_commit_guide "design" "$output_dir"
+            else
+                result=1
+            fi
             ;;
         implement|impl)
-            cross_check_implement_auto "$request_file" "$output_dir"
+            if cross_check_implement_auto "$request_file" "$output_dir"; then
+                show_commit_guide "implement" "$output_dir"
+            else
+                result=1
+            fi
             ;;
         test)
-            cross_check_test_auto "$request_file" "$output_dir"
+            if cross_check_test_auto "$request_file" "$output_dir"; then
+                show_commit_guide "test" "$output_dir"
+            else
+                result=1
+            fi
             ;;
         full|pipeline)
-            run_full_pipeline_auto "$request_file" "$output_dir"
+            if run_full_pipeline_auto "$request_file" "$output_dir"; then
+                show_commit_guide "full" "$output_dir"
+            else
+                result=1
+            fi
             ;;
         *)
             log_error "알 수 없는 모드: $mode"
             usage
             ;;
     esac
+
+    exit $result
 }
 
 main "$@"

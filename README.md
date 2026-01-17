@@ -219,7 +219,7 @@ dual_review.sh src/UserService.java security
 ./scripts/cross_check.sh full docs/request.md
 ```
 
-#### 완전 자동 모드 (NEW!)
+#### 완전 자동 모드 v2.0 (NEW!)
 
 Claude와 Gemini가 자동으로 협업하여 설계-구현-테스트를 진행합니다.
 
@@ -230,9 +230,8 @@ Claude와 Gemini가 자동으로 협업하여 설계-구현-테스트를 진행�
 # 구현만 자동 크로스체크
 ./scripts/cross_check_auto.sh implement docs/impl_request.md
 
-# 전체 파이프라인 + 자동 커밋 + PR 생성
-./scripts/cross_check_auto.sh full docs/request.md output \
-  --auto-commit --auto-pr
+# 전체 파이프라인
+./scripts/cross_check_auto.sh full docs/request.md output
 
 # 최대 라운드 지정
 ./scripts/cross_check_auto.sh implement docs/request.md output \
@@ -240,16 +239,21 @@ Claude와 Gemini가 자동으로 협업하여 설계-구현-테스트를 진행�
 ```
 
 **옵션:**
-- `--auto-commit` : 승인 시 자동으로 git commit + push
-- `--auto-pr` : 승인 시 자동으로 PR 생성 (GitHub CLI 필요)
 - `--max-rounds N` : 최대 크로스체크 횟수 (기본: 3)
 
 **특징:**
 - 🤖 Claude + Gemini 자동 협업
-- 🔄 무한루프 방지 (변경사항 해시 비교)
-- ✅ 자동 승인/반려 판정
-- 📝 자동 커밋 + PR 생성
-- 📊 상세 로그 저장 (`logs/cross_check_auto/`)
+- 🔄 무한루프 방지 (모든 함수에 변경사항 해시 비교 적용)
+- ✅ 개선된 승인/반려 판정 (tail -20, 명시적 키워드 우선)
+- 🔒 보안 강화 (mktemp, trap, 민감 파일 경고)
+- 📊 상세 테스트 로그 (입력/예상/실제 결과)
+- 📝 테스트 리포트 자동 생성 (TEST_REPORT_vN.md)
+- ♻️ API 재시도 로직 (네트워크 에러 시 최대 3회)
+- 📏 파일 크기 검증 (100KB 제한)
+
+**중요:**
+- ⚠️ **자동 커밋하지 않음** - 사용자가 직접 검토 후 커밋
+- 완료 후 커밋 가이드 제공 (추천 명령어, 민감 파일 경고)
 
 ---
 
