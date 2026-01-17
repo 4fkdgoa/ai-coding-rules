@@ -1,0 +1,23 @@
+{
+  "name": "ai-coding-rules",
+  "version": "1.0.0",
+  "description": "SI 프로젝트 자동화 및 위키 생성 도구",
+  "main": "index.js",
+  "scripts": {
+    "search": "node scripts/search-wiki.js",
+    "compare": "node scripts/compare-solutions.js",
+    "test": "echo \"Error: no test specified\" && exit 1"
+  },
+  "keywords": [
+    "automation",
+    "wiki",
+    "documentation",
+    "si-project"
+  ],
+  "author": "",
+  "license": "MIT",
+  "dependencies": {
+    "better-sqlite3": "^9.2.2"
+  },
+  "devDependencies": {}
+}
