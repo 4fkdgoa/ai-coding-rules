@@ -222,6 +222,113 @@ secondary_ai: none
 
 ---
 
+### Independent Review Mode (v3.0 - Phase 3)
+
+**독립적 설계 비교 모드** - Confirmation Bias를 제거하여 더 나은 설계를 발견합니다.
+
+#### 문제: Confirmation Bias
+
+기존 크로스체크 방식의 한계:
+
+```
+Claude 설계 → Gemini 리뷰(Claude 결과 기반)
+```
+
+**문제점**:
+- Gemini가 Claude의 결과를 "주어진 것"으로 받아들임
+- Claude가 고려하지 않은 대안은 Gemini도 제안 안 함
+- 둘 다 놓친 보안 이슈는 발견 불가
+
+**예시**:
+```
+요청: "사용자 인증 구현"
+Claude: JWT 방식 설계
+Gemini: "JWT 설계가 적절합니다 [승인]"
+
+누락: OAuth2, Session-based, 토큰 갱신 전략, XSS 대비 등
+```
+
+#### 해결: Independent Review
+
+두 AI가 독립적으로 설계한 후 비교합니다:
+
+```
+        ┌─ Claude 독립 설계 ─┐
+요청 ──┤                      ├─→ 비교 분석 → 사용자 선택
+        └─ Gemini 독립 설계 ─┘
+```
+
+**사용법**:
+
+```bash
+# Standard Mode (기존)
+./scripts/cross_check_auto.sh design request.md
+
+# Independent Mode (Phase 3)
+./scripts/cross_check_auto.sh design request.md --mode independent
+```
+
+#### 사용 시점
+
+**✅ Independent Mode 권장:**
+- 중요한 기능 설계 (인증, 결제, 보안)
+- 여러 기술 스택 옵션이 있을 때
+- 혁신적/창의적 접근 필요
+- 레거시 시스템 개선 (다양한 전략 비교)
+- 시간/비용 여유가 있을 때
+
+**⚡ Standard Mode 충분:**
+- 빠른 프로토타입
+- 간단한 CRUD
+- 이미 검증된 패턴
+- 비용/시간 절약 중요
+
+#### Workflow
+
+1. **병렬 독립 설계** (5-15분)
+   - Claude와 Gemini가 동시에 독립적으로 설계
+   - 서로의 결과를 보지 않음
+
+2. **AI 비교 분석** (2-5분)
+   - Claude Opus가 두 설계 비교
+   - 공통점, 차이점, 장단점, 보안 분석
+
+3. **사용자 선택** (1-10분)
+   - Option 1: Claude 설계
+   - Option 2: Gemini 설계
+   - Option 3: Hybrid 병합
+   - Option 4: 나중에 결정
+
+4. **최종 파일 생성**
+   - `design_final.md` 생성
+
+#### 비용/시간 비교
+
+| 항목 | Standard | Independent |
+|------|----------|-------------|
+| 시간 | 5-10분 | 10-20분 |
+| API 호출 | 2-4회 | 4-8회 |
+| 비용 | $0.50-$1.50 | $0.90-$2.00 |
+| 품질 | 7-8/10 | 9-10/10 |
+
+#### 출력 파일
+
+```
+output/independent_design_TIMESTAMP/
+├── design_claude_v1.md              # Claude 설계
+├── design_gemini_v1.md              # Gemini 설계
+├── design_comparison_report.md     # 비교 분석
+├── design_final.md                  # 최종 선택
+└── metadata.json                    # 메타데이터
+```
+
+**관련 문서**:
+- [Phase 3 구현 계획](docs/phase3-implementation-todo.md)
+- [v3.0 전체 설계](docs/cross-check-auto-v3-design.md)
+- [테스트 문서](tests/phase3/README.md)
+
+---
+
 ## AI 어시스턴트 지시사항
 
 ### 작업 전

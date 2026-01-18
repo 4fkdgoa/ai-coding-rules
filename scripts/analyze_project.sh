@@ -37,6 +37,22 @@ DEFAULT_EXTENSIONS="java,js,ts,tsx,py,go,rs,kt,scala,rb,php,cs,cpp,c,h"
 COST_PER_1K_TOKENS=0.003  # Claude Sonnet 기준 (입력)
 OUTPUT_COST_PER_1K_TOKENS=0.015  # Claude Sonnet 기준 (출력)
 
+# 민감 정보 패턴 (마스킹 대상)
+SENSITIVE_PATTERNS="password|passwd|secret|token|api[_-]?key|credential|private[_-]?key|auth[_-]?token|access[_-]?key"
+
+# 함수: 민감 정보 마스킹
+# 보안 수정: password, secret, token 등의 값을 ***** 로 마스킹
+mask_sensitive_value() {
+    local line="$1"
+    # key=value 또는 key: value 형식에서 민감한 key의 value를 마스킹
+    if echo "$line" | grep -qiE "($SENSITIVE_PATTERNS)"; then
+        # = 또는 : 뒤의 값을 마스킹
+        echo "$line" | sed -E 's/(=|:\s*)(.+)$/\1*****/'
+    else
+        echo "$line"
+    fi
+}
+
 # 함수: 사용법 출력
 usage() {
     echo "사용법: $0 <프로젝트_경로...> [모드] [옵션]"
@@ -111,18 +127,19 @@ load_aiignore() {
     fi
 }
 
-# 함수: find 제외 옵션 생성
-build_find_excludes() {
-    local excludes=""
+# 함수: find 제외 옵션 생성 (배열 반환)
+# 보안 수정: eval 대신 배열 사용으로 Command Injection 방지
+build_find_excludes_array() {
+    local -n _excludes_ref=$1
+    _excludes_ref=()
     for pattern in "${IGNORE_PATTERNS[@]}"; do
         # 디렉토리 패턴
         if [[ "$pattern" == */ ]]; then
-            excludes="$excludes -path '*/${pattern%/}' -prune -o"
+            _excludes_ref+=(-path "*/${pattern%/}" -prune -o)
         elif [[ "$pattern" != *"*"* ]]; then
-            excludes="$excludes -path '*/$pattern' -prune -o -path '*/$pattern/*' -prune -o"
+            _excludes_ref+=(-path "*/$pattern" -prune -o -path "*/$pattern/*" -prune -o)
         fi
     done
-    echo "$excludes"
 }
 
 # 함수: 프로젝트 타입 감지
@@ -169,20 +186,22 @@ collect_source_files() {
 
     if [ "$mode" = "full" ] || [ ${#files[@]} -eq 0 ]; then
         # 전체 스캔 모드
-        local excludes=$(build_find_excludes)
-        local ext_pattern=""
+        # 보안 수정: eval 제거, 배열 기반 find 명령으로 Command Injection 방지
+        local excludes_arr=()
+        build_find_excludes_array excludes_arr
 
+        local ext_arr=()
         IFS=',' read -ra EXTS <<< "$DEFAULT_EXTENSIONS"
         for ext in "${EXTS[@]}"; do
-            if [ -z "$ext_pattern" ]; then
-                ext_pattern="-name '*.$ext'"
+            if [ ${#ext_arr[@]} -eq 0 ]; then
+                ext_arr+=(-name "*.$ext")
             else
-                ext_pattern="$ext_pattern -o -name '*.$ext'"
+                ext_arr+=(-o -name "*.$ext")
             fi
         done
 
-        # find 명령 실행
-        eval "find '$project_path' $excludes -type f \( $ext_pattern \) -print 2>/dev/null" | sort
+        # find 명령 실행 (배열 사용으로 안전)
+        find "$project_path" "${excludes_arr[@]}" -type f \( "${ext_arr[@]}" \) -print 2>/dev/null | sort
     else
         printf '%s\n' "${files[@]}"
     fi
@@ -436,8 +455,9 @@ analyze_config_files() {
 
     if [ -f "$app_props" ]; then
         echo "  application.properties:"
+        # 보안 수정: 민감 정보 마스킹 적용
         grep -E "^server\.|^spring\.datasource\." "$app_props" 2>/dev/null | head -5 | while read -r line; do
-            echo "    - $line"
+            echo "    - $(mask_sensitive_value "$line")"
         done
     fi
 }
@@ -626,20 +646,21 @@ analyze_db_schema() {
     mkdir -p "$project_path/docs"
 
     # DB 분석기 실행 (비대화형 모드 사용)
-    local db_cmd="node '$db_analyzer_dir/index.js' --non-interactive"
+    # 보안 수정: eval 제거, 배열 기반 명령으로 Command Injection 방지
+    local db_cmd_arr=("node" "$db_analyzer_dir/index.js" "--non-interactive")
 
     if [ -n "$db_config" ] && [ -f "$db_config" ]; then
         # 설정 파일 사용
-        db_cmd="$db_cmd --config '$db_config'"
+        db_cmd_arr+=("--config" "$db_config")
     else
         # 프로젝트에서 DB 설정 자동 추출
-        db_cmd="$db_cmd --extract-from '$project_path'"
+        db_cmd_arr+=("--extract-from" "$project_path")
     fi
 
-    db_cmd="$db_cmd --output '$output_file'"
+    db_cmd_arr+=("--output" "$output_file")
 
     log_info "DB 분석 실행 중..."
-    eval $db_cmd
+    "${db_cmd_arr[@]}"
     local exit_code=$?
 
     case $exit_code in
