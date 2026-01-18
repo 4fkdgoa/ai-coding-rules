@@ -840,19 +840,19 @@ audit_log "SECURITY_ISSUE" "type=Path_Traversal, severity=P0"
 
 **완료됨**:
 1. ✅ Phase 1: 보안 패치 (v2.0 → v2.2) - 8-12시간 소요
+2. ✅ Phase 5: 표준 스키마 (v2.3 → v2.4) - 4-6시간 소요
 
 **남은 작업**:
-2. ⏳ Phase 2: Adversarial Review - 6-8시간 (선택적)
-3. ⏳ Phase 3: Independent Review - 16-24시간 (핵심)
-4. ⏳ Phase 4: Consensus - 40+ 시간 (재검토 필요)
-5. ⏳ Phase 5: 표준 스키마 - 4-6시간 (GPT 제안)
+3. ⏳ Phase 2: Adversarial Review - 6-8시간 (선택적)
+4. ⏳ Phase 3: Independent Review - 16-24시간 (핵심)
+5. ⏳ Phase 4: Consensus - 40+ 시간 (재검토 필요)
 
-**총 예상 소요 시간**: 68-98시간 (Phase 2-5 합계)
+**총 예상 소요 시간**: 62-92시간 (Phase 2-4 합계)
 **원래 추정**: 19-25시간 (3-4배 과소평가)
+**완료**: 12-18시간 (Phase 1 + Phase 5)
 
 **우선순위 기반 권장 일정**:
 - Phase 3 (독립 설계) 우선 구현 → Confirmation Bias 해결
-- Phase 5 (표준 스키마) 통합 → 자동화 향상
 - Phase 2, 4는 Phase 3 검증 후 필요성 재평가
 
 ---
@@ -881,6 +881,8 @@ audit_log "SECURITY_ISSUE" "type=Path_Traversal, severity=P0"
 | v2.0 | 2026-01-17 | 보안 개선 (자동 커밋 제거, mktemp) |
 | v2.1 | 2026-01-18 | P0/P1 보안 패치 (Opus 피드백 반영) |
 | v2.2 | 2026-01-18 | P2 보안 강화 (롤백, 백업, 로그 필터링) |
+| v2.3 | 2026-01-18 | 자동 커밋 옵션 추가 (--auto-commit) |
+| **v2.4** | **2026-01-18** | **JSON 스키마 시스템 (파싱 + AI 프롬프트)** |
 | **v3.0 설계** | 2026-01-18 | 다중 AI 독립 리뷰 설계 (Opus + GPT 피드백 통합) |
 
 ---
