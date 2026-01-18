@@ -876,6 +876,314 @@ EOF
     log_success "테스트 리포트 생성: $report_file"
 }
 
+# 함수: Claude 독립적 설계 생성 (Phase 3: Independent Review)
+run_claude_design_independent() {
+    local request_file="$1"
+    local output_dir="$2"
+
+    log_step "=== Claude 독립적 설계 생성 시작 ==="
+    log_info "요청 파일: $request_file"
+    log_info "출력 디렉토리: $output_dir"
+
+    # 파일 크기 검증
+    if ! validate_file_size "$request_file"; then
+        return 1
+    fi
+
+    mkdir -p "$output_dir"
+    mkdir -p "$LOG_DIR"
+
+    local design_file="$output_dir/design_claude_v1.md"
+    local log_file="$LOG_DIR/claude_design_independent.log"
+
+    # 독립적 설계 프롬프트 작성
+    local design_prompt="당신은 다음 요청에 대한 설계를 독립적으로 작성해야 합니다.
+
+**중요**: 다른 AI의 설계를 절대 참고하지 마세요. 오직 아래 요청서만 보고 독립적으로 설계하세요.
+
+[요청 내용]
+$(cat "$request_file")
+
+[설계 가이드라인]
+1. 전체 아키텍처 설계
+   - 시스템 구조 및 컴포넌트 간 관계
+   - 데이터 흐름 및 처리 방식
+   - 확장성 및 유지보수성 고려
+
+2. 주요 컴포넌트 및 역할
+   - 각 컴포넌트의 책임과 인터페이스
+   - 컴포넌트 간 의존성 관리
+   - 모듈화 및 재사용성
+
+3. 데이터 구조 및 모델
+   - 주요 데이터 엔티티 정의
+   - 데이터 관계 및 제약사항
+   - 데이터 저장 및 접근 전략
+
+4. API 설계 (해당되는 경우)
+   - 엔드포인트 정의
+   - 요청/응답 형식
+   - 인증 및 권한 관리
+
+5. 보안 고려사항
+   - 잠재적 보안 위험 식별
+   - 보안 대책 및 best practices
+   - 입력 검증 및 sanitization
+
+6. 테스트 전략
+   - 단위 테스트 계획
+   - 통합 테스트 시나리오
+   - 엣지 케이스 및 에러 처리
+
+7. 배포 및 운영 계획
+   - 배포 프로세스 및 환경
+   - 모니터링 및 로깅 전략
+   - 성능 및 확장성 계획
+
+**응답 형식**: 설계 문서는 마크다운 형식으로 작성하되, 마지막에 JSON 형식의 자가 평가를 포함해주세요.
+
+\`\`\`json
+{
+  \"version\": \"1.0\",
+  \"timestamp\": \"$(date -u +"%Y-%m-%dT%H:%M:%SZ")\",
+  \"reviewer\": \"Claude Sonnet 4.5 (Self-Review)\",
+  \"phase\": \"design\",
+  \"verdict\": \"APPROVED | APPROVED_WITH_CHANGES | REJECTED\",
+  \"security_issues\": [
+    {
+      \"id\": \"P0-1\",
+      \"severity\": \"P0\",
+      \"type\": \"Security Issue Type\",
+      \"location\": \"design section\",
+      \"description\": \"상세 설명\",
+      \"recommendation\": \"수정 방법\",
+      \"cwe\": \"CWE-XXX\"
+    }
+  ],
+  \"improvements\": [
+    {
+      \"priority\": \"P1\",
+      \"category\": \"Performance | Maintainability | Architecture | etc\",
+      \"suggestion\": \"개선 제안\",
+      \"reasoning\": \"이유\"
+    }
+  ],
+  \"metrics\": {
+    \"total_issues\": 0,
+    \"p0_count\": 0,
+    \"p1_count\": 0,
+    \"p2_count\": 0,
+    \"p3_count\": 0,
+    \"total_improvements\": 0,
+    \"approval_confidence\": 0.95
+  },
+  \"summary\": \"설계 요약\"
+}
+\`\`\`
+
+설계 문서를 작성하고, 결과를 출력해주세요."
+
+    # Claude 실행 (재시도 로직 포함)
+    local retry=0
+    while [ $retry -lt $MAX_RETRIES ]; do
+        log_ai "Claude ($CLAUDE_MODEL_ID) 독립 설계 실행 중... (시도 $((retry+1))/$MAX_RETRIES)"
+
+        # 프롬프트 크기 제한 검증
+        local MAX_PROMPT_SIZE=102400  # 100KB
+        if [ ${#design_prompt} -gt $MAX_PROMPT_SIZE ]; then
+            log_error "프롬프트 크기 초과: ${#design_prompt} bytes (최대 ${MAX_PROMPT_SIZE} bytes)"
+            return 1
+        fi
+
+        # 안전한 임시 파일 생성
+        local temp_response=$(mktemp /tmp/claude_design_indep.XXXXXX)
+        local temp_prompt=$(mktemp /tmp/claude_prompt_indep.XXXXXX)
+        TEMP_FILES+=("$temp_response" "$temp_prompt")
+
+        # 프롬프트를 임시 파일에 작성
+        printf '%s' "$design_prompt" > "$temp_prompt"
+
+        # Claude 실행 (stdin으로 전달)
+        if claude -m "$CLAUDE_MODEL_ID" < "$temp_prompt" > "$temp_response" 2>&1; then
+            # 성공 시 design_file로 복사
+            cp "$temp_response" "$design_file"
+            log_success "Claude 독립 설계 저장: $design_file"
+
+            # 로그 파일에도 백업
+            cp "$temp_response" "$log_file"
+
+            # 민감 정보 필터링
+            sanitize_log "$log_file"
+
+            log_success "✓ Claude 독립 설계 완료"
+            return 0
+        fi
+
+        retry=$((retry + 1))
+        if [ $retry -lt $MAX_RETRIES ]; then
+            log_warn "Claude 실행 실패 (시도 $retry/$MAX_RETRIES). ${RETRY_DELAY}초 후 재시도..."
+            sleep $RETRY_DELAY
+        fi
+    done
+
+    log_error "Claude 독립 설계 최종 실패!"
+    return 1
+}
+
+# 함수: Gemini 독립적 설계 생성 (Phase 3: Independent Review)
+run_gemini_design_independent() {
+    local request_file="$1"
+    local output_dir="$2"
+
+    log_step "=== Gemini 독립적 설계 생성 시작 ==="
+    log_info "요청 파일: $request_file"
+    log_info "출력 디렉토리: $output_dir"
+
+    # 파일 크기 검증
+    if ! validate_file_size "$request_file"; then
+        return 1
+    fi
+
+    mkdir -p "$output_dir"
+    mkdir -p "$LOG_DIR"
+
+    local design_file="$output_dir/design_gemini_v1.md"
+    local log_file="$LOG_DIR/gemini_design_independent.log"
+
+    # 독립적 설계 프롬프트 작성
+    local design_prompt="당신은 다음 요청에 대한 설계를 독립적으로 작성해야 합니다.
+
+**중요**: 다른 AI의 설계를 절대 참고하지 마세요. 오직 아래 요청서만 보고 독립적으로 설계하세요.
+
+[요청 내용]
+$(cat "$request_file")
+
+[설계 가이드라인]
+1. 전체 아키텍처 설계
+   - 시스템 구조 및 컴포넌트 간 관계
+   - 데이터 흐름 및 처리 방식
+   - 확장성 및 유지보수성 고려
+
+2. 주요 컴포넌트 및 역할
+   - 각 컴포넌트의 책임과 인터페이스
+   - 컴포넌트 간 의존성 관리
+   - 모듈화 및 재사용성
+
+3. 데이터 구조 및 모델
+   - 주요 데이터 엔티티 정의
+   - 데이터 관계 및 제약사항
+   - 데이터 저장 및 접근 전략
+
+4. API 설계 (해당되는 경우)
+   - 엔드포인트 정의
+   - 요청/응답 형식
+   - 인증 및 권한 관리
+
+5. 보안 고려사항
+   - 잠재적 보안 위험 식별
+   - 보안 대책 및 best practices
+   - 입력 검증 및 sanitization
+
+6. 테스트 전략
+   - 단위 테스트 계획
+   - 통합 테스트 시나리오
+   - 엣지 케이스 및 에러 처리
+
+7. 배포 및 운영 계획
+   - 배포 프로세스 및 환경
+   - 모니터링 및 로깅 전략
+   - 성능 및 확장성 계획
+
+**응답 형식**: 설계 문서는 마크다운 형식으로 작성하되, 마지막에 JSON 형식의 자가 평가를 포함해주세요.
+
+\`\`\`json
+{
+  \"version\": \"1.0\",
+  \"timestamp\": \"$(date -u +"%Y-%m-%dT%H:%M:%SZ")\",
+  \"reviewer\": \"Gemini 3 Pro Preview (Self-Review)\",
+  \"phase\": \"design\",
+  \"verdict\": \"APPROVED | APPROVED_WITH_CHANGES | REJECTED\",
+  \"security_issues\": [
+    {
+      \"id\": \"P0-1\",
+      \"severity\": \"P0\",
+      \"type\": \"Security Issue Type\",
+      \"location\": \"design section\",
+      \"description\": \"상세 설명\",
+      \"recommendation\": \"수정 방법\",
+      \"cwe\": \"CWE-XXX\"
+    }
+  ],
+  \"improvements\": [
+    {
+      \"priority\": \"P1\",
+      \"category\": \"Performance | Maintainability | Architecture | etc\",
+      \"suggestion\": \"개선 제안\",
+      \"reasoning\": \"이유\"
+    }
+  ],
+  \"metrics\": {
+    \"total_issues\": 0,
+    \"p0_count\": 0,
+    \"p1_count\": 0,
+    \"p2_count\": 0,
+    \"p3_count\": 0,
+    \"total_improvements\": 0,
+    \"approval_confidence\": 0.95
+  },
+  \"summary\": \"설계 요약\"
+}
+\`\`\`
+
+설계 문서를 작성하고, 결과를 출력해주세요."
+
+    # Gemini 실행 (재시도 로직 포함)
+    local retry=0
+    while [ $retry -lt $MAX_RETRIES ]; do
+        log_ai "Gemini ($GEMINI_MODEL) 독립 설계 실행 중... (시도 $((retry+1))/$MAX_RETRIES)"
+
+        # 프롬프트 크기 제한 검증
+        local MAX_PROMPT_SIZE=102400  # 100KB
+        if [ ${#design_prompt} -gt $MAX_PROMPT_SIZE ]; then
+            log_error "프롬프트 크기 초과: ${#design_prompt} bytes (최대 ${MAX_PROMPT_SIZE} bytes)"
+            return 1
+        fi
+
+        # 안전한 임시 파일 생성
+        local temp_response=$(mktemp /tmp/gemini_design_indep.XXXXXX)
+        local temp_prompt=$(mktemp /tmp/gemini_prompt_indep.XXXXXX)
+        TEMP_FILES+=("$temp_response" "$temp_prompt")
+
+        # 프롬프트를 임시 파일에 작성
+        printf '%s' "$design_prompt" > "$temp_prompt"
+
+        # Gemini 실행 (stdin으로 전달)
+        if gemini -m "$GEMINI_MODEL" --yolo < "$temp_prompt" > "$temp_response" 2>&1; then
+            # 성공 시 design_file로 복사
+            cp "$temp_response" "$design_file"
+            log_success "Gemini 독립 설계 저장: $design_file"
+
+            # 로그 파일에도 백업
+            cp "$temp_response" "$log_file"
+
+            # 민감 정보 필터링
+            sanitize_log "$log_file"
+
+            log_success "✓ Gemini 독립 설계 완료"
+            return 0
+        fi
+
+        retry=$((retry + 1))
+        if [ $retry -lt $MAX_RETRIES ]; then
+            log_warn "Gemini 실행 실패 (시도 $retry/$MAX_RETRIES). ${RETRY_DELAY}초 후 재시도..."
+            sleep $RETRY_DELAY
+        fi
+    done
+
+    log_error "Gemini 독립 설계 최종 실패!"
+    return 1
+}
+
 # 함수: 설계 크로스체크 (자동)
 cross_check_design_auto() {
     local request_file="$1"
