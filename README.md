@@ -240,6 +240,7 @@ Claude와 Gemini가 자동으로 협업하여 설계-구현-테스트를 진행�
 
 **옵션:**
 - `--max-rounds N` : 최대 크로스체크 횟수 (기본: 3)
+- `--mode MODE` : 리뷰 모드 선택 (기본: standard)
 
 **특징:**
 - 🤖 Claude + Gemini 자동 협업
@@ -254,6 +255,117 @@ Claude와 Gemini가 자동으로 협업하여 설계-구현-테스트를 진행�
 **중요:**
 - ⚠️ **자동 커밋하지 않음** - 사용자가 직접 검토 후 커밋
 - 완료 후 커밋 가이드 제공 (추천 명령어, 민감 파일 경고)
+
+#### Phase 3: Independent Review Mode (v3.0)
+
+**독립적 설계 비교 모드** - Confirmation Bias를 제거하여 더 다양하고 혁신적인 설계 대안을 발견합니다.
+
+**Standard Mode vs Independent Mode 비교:**
+
+| 모드 | 동작 방식 | 장점 | 단점 |
+|------|----------|------|------|
+| **Standard** | Claude 설계 → Gemini 리뷰 | 빠름, 비용 절감 | Confirmation Bias (Claude가 놓친 대안은 Gemini도 못 찾음) |
+| **Independent** | Claude & Gemini 독립 설계 → 비교 분석 → 사용자 선택 | 다양한 관점, 혁신적 대안 발견 | 시간/비용 2배 |
+
+**사용법:**
+
+```bash
+# Standard Mode (기존 방식)
+./scripts/cross_check_auto.sh design request.md
+
+# Independent Mode (Phase 3 - NEW!)
+./scripts/cross_check_auto.sh design request.md --mode independent
+```
+
+**Independent Mode 워크플로우:**
+
+```
+1. 병렬 독립 설계
+   ├─ Claude: request.md를 읽고 독립적으로 설계
+   └─ Gemini: request.md를 읽고 독립적으로 설계
+
+2. AI 기반 비교 분석 (Claude Opus가 두 설계 비교)
+   ├─ 공통점 분석
+   ├─ 차이점 분석
+   ├─ 장단점 비교
+   ├─ 보안 취약점 비교
+   └─ 추천사항 제시
+
+3. 사용자 선택
+   ├─ Option 1: Claude 설계 선택
+   ├─ Option 2: Gemini 설계 선택
+   ├─ Option 3: Hybrid 병합 (두 설계의 장점 통합)
+   └─ Option 4: 나중에 결정 (비교 리포트만 저장)
+
+4. 최종 설계 파일 생성
+   └─ design_final.md (선택된 설계 또는 Hybrid)
+```
+
+**출력 파일 구조:**
+
+```
+output/independent_design_TIMESTAMP/
+├── design_claude_v1.md              # Claude의 독립 설계
+├── design_gemini_v1.md              # Gemini의 독립 설계
+├── design_comparison_report.md     # AI 생성 비교 분석 리포트
+├── design_final.md                  # 최종 선택된 설계
+├── design_hybrid_v1.md              # (Option 3 선택 시) 병합된 설계
+├── metadata.json                    # 실행 메타데이터
+└── logs/
+    ├── claude_design_independent.log
+    ├── gemini_design_independent.log
+    ├── comparison.log
+    └── hybrid_merge.log              # (Option 3 선택 시)
+```
+
+**Hybrid 병합 전략:**
+
+```bash
+# Hybrid 선택 시 3가지 전략 중 선택
+1. Best-of-both (자동): AI가 각 설계의 장점만 자동 결합
+2. Guided (수동): 섹션별로 A/B 선택
+3. AI-auto (자동): Claude Opus가 최적 병합 수행
+```
+
+**언제 Independent Mode를 사용해야 하나?**
+
+✅ **Independent Mode 권장:**
+- 중요한 기능 설계 (인증, 결제, 보안 등)
+- 여러 기술 스택 옵션이 있을 때 (JWT vs Session, SQL vs NoSQL 등)
+- 혁신적이거나 창의적인 접근이 필요할 때
+- 레거시 시스템 개선 (다양한 마이그레이션 전략 비교)
+- 비용/시간 여유가 있을 때
+
+⚡ **Standard Mode 권장:**
+- 빠른 프로토타입 개발
+- 간단한 CRUD 기능
+- 이미 검증된 패턴 적용
+- 비용/시간 절약이 중요할 때
+
+**예시:**
+
+```bash
+# 사용자 인증 시스템 설계 (중요 기능 → Independent 권장)
+./scripts/cross_check_auto.sh design docs/auth_request.md --mode independent
+
+# 간단한 게시판 CRUD (간단 → Standard로 충분)
+./scripts/cross_check_auto.sh design docs/board_request.md
+```
+
+**테스트:**
+
+```bash
+# 샘플 요청으로 테스트
+./scripts/cross_check_auto.sh design tests/phase3/sample-request.md --mode independent
+
+# 자동화 테스트 실행
+./tests/phase3/test-independent-mode.sh
+```
+
+**관련 문서:**
+- [Phase 3 구현 계획](docs/phase3-implementation-todo.md)
+- [v3.0 전체 설계](docs/cross-check-auto-v3-design.md)
+- [테스트 문서](tests/phase3/README.md)
 
 ---
 

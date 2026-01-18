@@ -1,9 +1,14 @@
 #!/bin/bash
 #
-# cross_check_auto.sh - AI 크로스체크 완전 자동화 스크립트 (v2.2)
+# cross_check_auto.sh - AI 크로스체크 완전 자동화 스크립트 (v3.0)
 # Claude(Maker) <-> Gemini(Reviewer) 자동 협업
 #
-# v2.2 보안 강화 (Opus 4.5 P0/P2 반영):
+# 버전 히스토리:
+#   v2.2: 보안 강화 (Opus 4.5 P0/P2 반영)
+#   v2.4: JSON 스키마 파싱 및 AI 프롬프트 통합
+#   v3.0: Phase 3 - Independent Review Mode (Confirmation Bias 제거)
+#
+# v2.2 보안 강화:
 #   - P0-1: Command Injection 방지 (stdin으로 프롬프트 전달)
 #   - P0-2: Path Traversal 방지 (proper containment check)
 #   - P0-3: 프롬프트 크기 제한 (MAX_PROMPT_SIZE=100KB)
@@ -12,21 +17,44 @@
 #   - P2-2: 파일 백업 메커니즘
 #   - P2-3: 로그 민감 정보 필터링
 #
+# v3.0 Phase 3 - Independent Review:
+#   - 독립적 설계 생성 (Claude & Gemini 병렬 실행)
+#   - AI 기반 설계 비교 분석
+#   - 사용자 선택 UI (Claude/Gemini/Hybrid/Later)
+#   - Hybrid 병합 기능 (Best-of-both/Guided/AI-auto)
+#   - Confirmation Bias 완전 제거
+#
 # 사용법:
-#   ./cross_check_auto.sh design <설계요청파일> [출력디렉토리]
+#   ./cross_check_auto.sh design <설계요청파일> [출력디렉토리] [--mode MODE]
 #   ./cross_check_auto.sh implement <구현요청파일> [출력디렉토리]
 #   ./cross_check_auto.sh full <요청파일> [출력디렉토리] [--max-rounds N]
 #
 # 옵션:
 #   --max-rounds N : 최대 크로스체크 횟수 (기본: 3)
+#   --mode MODE    : 리뷰 모드 선택 (standard | independent, 기본: standard)
+#
+# 모드:
+#   standard    : Claude 설계 → Gemini 리뷰 (빠름, 기존 방식)
+#   independent : Claude & Gemini 독립 설계 → 비교 → 선택 (품질 우선)
 #
 # 예시:
+#   # Standard Mode (기존 방식)
 #   ./cross_check_auto.sh design docs/design_request.md
+#
+#   # Independent Mode (Phase 3 - NEW!)
+#   ./cross_check_auto.sh design docs/auth_request.md --mode independent
+#
+#   # 전체 파이프라인
 #   ./cross_check_auto.sh full docs/request.md output --max-rounds 5
 #
 # 주의:
 #   - 이 스크립트는 자동으로 커밋하지 않습니다
 #   - 모든 테스트 완료 후 사용자가 직접 검토하고 커밋하세요
+#
+# 관련 문서:
+#   - docs/cross-check-auto-v3-design.md    : v3.0 전체 설계
+#   - docs/phase3-implementation-todo.md    : Phase 3 구현 계획
+#   - tests/phase3/README.md                 : 테스트 문서
 #
 
 set -e
