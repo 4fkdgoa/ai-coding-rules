@@ -1,0 +1,243 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "$id": "https://ai-coding-rules/schemas/ai-review-response.schema.json",
+  "title": "AI Review Response Schema",
+  "description": "Standard schema for AI code review responses in cross-check automation workflow",
+  "type": "object",
+  "required": [
+    "version",
+    "timestamp",
+    "reviewer",
+    "phase",
+    "verdict",
+    "security_issues",
+    "improvements",
+    "metrics"
+  ],
+  "properties": {
+    "version": {
+      "type": "string",
+      "description": "Schema version (semantic versioning)",
+      "pattern": "^[0-9]+\\.[0-9]+(\\.[0-9]+)?$",
+      "examples": ["1.0", "1.0.0"]
+    },
+    "timestamp": {
+      "type": "string",
+      "description": "ISO 8601 timestamp of when the review was generated",
+      "format": "date-time",
+      "examples": ["2026-01-18T06:30:00Z"]
+    },
+    "reviewer": {
+      "type": "string",
+      "description": "Name and model identifier of the AI reviewer",
+      "examples": ["Claude Opus 4.5", "Gemini 3 Pro Preview"]
+    },
+    "phase": {
+      "type": "string",
+      "description": "Development phase being reviewed",
+      "enum": ["design", "implement", "test", "full"],
+      "examples": ["design"]
+    },
+    "verdict": {
+      "type": "string",
+      "description": "Final review decision",
+      "enum": ["APPROVED", "APPROVED_WITH_CHANGES", "REJECTED"],
+      "examples": ["APPROVED_WITH_CHANGES"]
+    },
+    "security_issues": {
+      "type": "array",
+      "description": "List of security vulnerabilities found (P0-P3 severity)",
+      "items": {
+        "$ref": "#/definitions/security_issue"
+      },
+      "default": []
+    },
+    "improvements": {
+      "type": "array",
+      "description": "List of improvement suggestions (non-security)",
+      "items": {
+        "$ref": "#/definitions/improvement"
+      },
+      "default": []
+    },
+    "metrics": {
+      "$ref": "#/definitions/metrics"
+    },
+    "summary": {
+      "type": "string",
+      "description": "Optional high-level summary of the review",
+      "examples": ["Design is sound but requires security fixes before implementation"]
+    },
+    "additional_notes": {
+      "type": "string",
+      "description": "Optional additional context or notes from the reviewer",
+      "examples": ["Consider using established security libraries instead of custom implementations"]
+    }
+  },
+  "definitions": {
+    "security_issue": {
+      "type": "object",
+      "required": [
+        "id",
+        "severity",
+        "type",
+        "description",
+        "recommendation"
+      ],
+      "properties": {
+        "id": {
+          "type": "string",
+          "description": "Unique identifier for this issue (e.g., P0-1, P1-2)",
+          "pattern": "^P[0-3]-[0-9]+$",
+          "examples": ["P0-1", "P2-3"]
+        },
+        "severity": {
+          "type": "string",
+          "description": "Priority level: P0=Critical, P1=High, P2=Medium, P3=Low",
+          "enum": ["P0", "P1", "P2", "P3"]
+        },
+        "type": {
+          "type": "string",
+          "description": "Type of security issue (e.g., Command Injection, SQL Injection, XSS)",
+          "examples": ["Command Injection", "SQL Injection", "Path Traversal", "XSS"]
+        },
+        "location": {
+          "type": "string",
+          "description": "File path and line number where the issue occurs",
+          "examples": ["scripts/cross_check_auto.sh:202", "src/auth.py:45-50"]
+        },
+        "description": {
+          "type": "string",
+          "description": "Detailed explanation of the security vulnerability"
+        },
+        "recommendation": {
+          "type": "string",
+          "description": "Specific steps to fix or mitigate the issue"
+        },
+        "cwe": {
+          "type": "string",
+          "description": "Common Weakness Enumeration identifier (optional)",
+          "pattern": "^CWE-[0-9]+$",
+          "examples": ["CWE-77", "CWE-89", "CWE-79"]
+        },
+        "cvss_score": {
+          "type": "number",
+          "description": "CVSS v3 base score (0.0-10.0, optional)",
+          "minimum": 0.0,
+          "maximum": 10.0,
+          "examples": [7.5, 9.8]
+        }
+      }
+    },
+    "improvement": {
+      "type": "object",
+      "required": [
+        "priority",
+        "category",
+        "suggestion"
+      ],
+      "properties": {
+        "priority": {
+          "type": "string",
+          "description": "Priority level for the improvement",
+          "enum": ["P0", "P1", "P2", "P3"]
+        },
+        "category": {
+          "type": "string",
+          "description": "Category of improvement",
+          "enum": [
+            "Performance",
+            "Maintainability",
+            "Readability",
+            "Testing",
+            "Documentation",
+            "Architecture",
+            "Best Practices",
+            "Error Handling",
+            "Other"
+          ]
+        },
+        "suggestion": {
+          "type": "string",
+          "description": "Specific improvement recommendation"
+        },
+        "reasoning": {
+          "type": "string",
+          "description": "Explanation of why this improvement is beneficial"
+        },
+        "location": {
+          "type": "string",
+          "description": "File path and line number (if applicable)",
+          "examples": ["src/utils.py:120-135"]
+        },
+        "estimated_effort": {
+          "type": "string",
+          "description": "Rough estimate of effort required",
+          "enum": ["Low", "Medium", "High"],
+          "examples": ["Medium"]
+        }
+      }
+    },
+    "metrics": {
+      "type": "object",
+      "required": [
+        "total_issues",
+        "p0_count",
+        "p1_count",
+        "p2_count",
+        "p3_count"
+      ],
+      "properties": {
+        "total_issues": {
+          "type": "integer",
+          "description": "Total number of security issues found",
+          "minimum": 0,
+          "examples": [5]
+        },
+        "p0_count": {
+          "type": "integer",
+          "description": "Number of P0 (Critical) issues",
+          "minimum": 0,
+          "examples": [2]
+        },
+        "p1_count": {
+          "type": "integer",
+          "description": "Number of P1 (High) issues",
+          "minimum": 0,
+          "examples": [2]
+        },
+        "p2_count": {
+          "type": "integer",
+          "description": "Number of P2 (Medium) issues",
+          "minimum": 0,
+          "examples": [1]
+        },
+        "p3_count": {
+          "type": "integer",
+          "description": "Number of P3 (Low) issues",
+          "minimum": 0,
+          "examples": [0]
+        },
+        "total_improvements": {
+          "type": "integer",
+          "description": "Total number of improvement suggestions",
+          "minimum": 0,
+          "examples": [3]
+        },
+        "approval_confidence": {
+          "type": "number",
+          "description": "Confidence score for the verdict (0.0-1.0)",
+          "minimum": 0.0,
+          "maximum": 1.0,
+          "examples": [0.7, 0.95]
+        },
+        "review_duration_seconds": {
+          "type": "integer",
+          "description": "Time taken to complete the review (optional)",
+          "minimum": 0,
+          "examples": [45]
+        }
+      }
+    }
+  }
+}
