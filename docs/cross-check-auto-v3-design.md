@@ -624,27 +624,22 @@ audit_log "SECURITY_ISSUE" "type=Path_Traversal, severity=P0"
 - 테스트 스위트 (14개 테스트, 100% 통과)
 - 문서화 (README, CLAUDE.md, 테스트 문서)
 
-### 7.4 Phase 4: Multi-Agent Consensus (v3.0) ⚠️ 재검토 필요
+### 7.4 Phase 4: 2-Agent Consensus (v3.1) 📋 설계 수정됨
 
-**목표**: 다중 AI 합의 (4개 AI: Claude/Gemini/Grok/GPT)
+**목표**: Claude + Gemini 2개 AI 합의 (Grok/GPT는 웹에서 수동 확인)
+
+**설계 변경**: 4개 AI → 2개 AI (복잡도/비용 대폭 축소)
 
 **작업 항목**:
-1. ⏳ `--mode consensus` 구현
-2. ⏳ Grok CLI 통합 (가용성 미확인 ⚠️)
-3. ⏳ GPT CLI 통합 (가용성 미확인 ⚠️)
-4. ⏳ 합의 알고리즘 (투표/가중치)
-5. ⏳ 의견 충돌 해결 로직
-6. ⏳ 투표 결과 시각화
-7. ⏳ 타임아웃/재시도 처리 (4배 증가)
+1. ⏳ Consensus Engine 구현 (Node.js)
+2. ⏳ `--auto-merge-on-consensus` 옵션 추가
+3. ⏳ 합의 판정 로직 (MATCH/CONFLICT/BOTH_REJECTED)
+4. ⏳ 충돌 시 사용자 선택 UI
+5. ⏳ 웹 Grok/GPT 검토 안내 (선택적)
 
-**원래 추정 시간**: 8-10시간 (비현실적)
-**현실적 추정 시간**: 40+ 시간 (Opus 권장, 4-5배 증가)
-**이유**: CLI 통합 불확실성, 복잡한 합의 로직, 4개 AI 병렬 처리
-**우선순위**: P4 (선택적, Opus는 2개 모드로 축소 권장)
-
-**⚠️ Opus 4.5 권장사항**:
-- 현재 4개 모드 (Standard/Independent/Adversarial/Consensus)는 과도함
-- 2개 모드로 축소 권장: **Quick** (기본 검토) / **Thorough** (독립 설계)
+**예상 시간**: 8-12시간 (기존 40+시간에서 축소)
+**상세 설계**: [phase4-consensus-design-v2.md](phase4-consensus-design-v2.md)
+**우선순위**: P3 (Phase 3 검증 후 진행)
 
 ### 7.5 표준 출력 스키마 (GPT 5.1 mini 제안) ⏳ 계획
 
