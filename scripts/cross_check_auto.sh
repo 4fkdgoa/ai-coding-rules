@@ -1831,6 +1831,302 @@ EOF
     return 0
 }
 
+# 함수: Hybrid 설계 병합 (Phase 3: TODO 8)
+merge_designs_hybrid() {
+    local output_dir="$1"
+
+    log_step "=== Hybrid 설계 병합 시작 ==="
+    log_info "출력 디렉토리: $output_dir"
+
+    local claude_design="$output_dir/design_claude_v1.md"
+    local gemini_design="$output_dir/design_gemini_v1.md"
+    local comparison_json="$output_dir/comparison_result.json"
+    local hybrid_design="$output_dir/design_hybrid_v1.md"
+
+    mkdir -p "$LOG_DIR"
+    local log_file="$LOG_DIR/hybrid_merge.log"
+
+    # 입력 파일 존재 확인
+    if [ ! -f "$claude_design" ]; then
+        log_error "Claude 설계 파일이 존재하지 않습니다: $claude_design"
+        return 1
+    fi
+
+    if [ ! -f "$gemini_design" ]; then
+        log_error "Gemini 설계 파일이 존재하지 않습니다: $gemini_design"
+        return 1
+    fi
+
+    if [ ! -f "$comparison_json" ]; then
+        log_error "비교 결과 JSON 파일이 존재하지 않습니다: $comparison_json"
+        return 1
+    fi
+
+    log_info "Claude 설계: $claude_design"
+    log_info "Gemini 설계: $gemini_design"
+    log_info "비교 결과: $comparison_json"
+    echo ""
+
+    # 병합 전략 선택 UI
+    echo "========================================"
+    echo "  Hybrid 병합 전략 선택"
+    echo "========================================"
+    echo ""
+    echo "1) Best-of-both: AI가 각 설계의 장점만 선택하여 자동 병합"
+    echo "2) Guided: 섹션별로 직접 선택 (Architecture, API, Security 등)"
+    echo "3) AI-auto: AI가 완전 자동으로 최적 병합"
+    echo ""
+
+    local strategy_choice=""
+    local strategy=""
+
+    while true; do
+        read -p "선택 (1-3): " strategy_choice
+
+        case "$strategy_choice" in
+            1)
+                strategy="best-of-both"
+                log_success "Best-of-both 전략을 선택했습니다."
+                break
+                ;;
+            2)
+                strategy="guided"
+                log_success "Guided 전략을 선택했습니다."
+                break
+                ;;
+            3)
+                strategy="ai-auto"
+                log_success "AI-auto 전략을 선택했습니다."
+                break
+                ;;
+            *)
+                log_error "잘못된 입력입니다. 1-3 사이의 숫자를 입력하세요."
+                ;;
+        esac
+    done
+
+    echo ""
+    log_step "병합 전략: $strategy"
+    echo ""
+
+    # 전략별 병합 처리
+    case "$strategy" in
+        best-of-both|ai-auto)
+            # AI 자동 병합 (Best-of-both와 AI-auto)
+            log_step "AI 자동 병합 중..."
+
+            local merge_prompt="다음 두 독립 설계를 분석한 비교 결과를 참고하여,
+최상의 하이브리드 설계를 생성해주세요.
+
+[Claude 설계]
+$(cat "$claude_design")
+
+[Gemini 설계]
+$(cat "$gemini_design")
+
+[비교 분석 결과]
+$(cat "$comparison_json")
+
+병합 전략: $strategy
+
+요청사항:
+- Claude 설계의 장점 활용
+- Gemini 설계의 장점 활용
+- 양 설계의 단점은 제거
+- 일관성 있는 통합 설계 작성
+- 보안을 최우선으로 고려
+
+**응답 형식**: 완전한 설계 문서 (Markdown)
+
+설계 문서는 다음 섹션을 포함해야 합니다:
+1. Architecture (시스템 아키텍처)
+2. Components (주요 컴포넌트)
+3. API (API 명세 - 해당되는 경우)
+4. Security (보안 고려사항)
+5. Testing (테스트 전략)
+6. Implementation Plan (구현 계획)
+
+각 섹션에서 Claude와 Gemini 설계의 최상의 요소를 선택하여 통합하고,
+모순되는 부분은 보안과 실용성을 기준으로 최선의 접근 방식을 선택해주세요."
+
+            # 프롬프트 크기 제한 검증
+            local MAX_PROMPT_SIZE=524288  # 512KB
+            if [ ${#merge_prompt} -gt $MAX_PROMPT_SIZE ]; then
+                log_error "프롬프트 크기 초과: ${#merge_prompt} bytes (최대 ${MAX_PROMPT_SIZE} bytes)"
+                return 1
+            fi
+
+            # 안전한 임시 파일 생성
+            local temp_response=$(mktemp /tmp/claude_hybrid_merge.XXXXXX)
+            local temp_prompt=$(mktemp /tmp/claude_hybrid_prompt.XXXXXX)
+            TEMP_FILES+=("$temp_response" "$temp_prompt")
+
+            # 프롬프트를 임시 파일에 작성
+            printf '%s' "$merge_prompt" > "$temp_prompt"
+
+            # Claude Opus 4.5 실행 (재시도 로직 포함)
+            local retry=0
+            local opus_model="claude-opus-4-5"
+
+            while [ $retry -lt $MAX_RETRIES ]; do
+                log_ai "Claude Opus 4.5 병합 실행 중... (시도 $((retry+1))/$MAX_RETRIES)"
+
+                # Claude 실행 (stdin으로 전달)
+                if claude -m "$opus_model" < "$temp_prompt" > "$temp_response" 2>&1; then
+                    # 성공 시 로그 파일에 백업
+                    cp "$temp_response" "$log_file"
+
+                    # 민감 정보 필터링
+                    sanitize_log "$log_file"
+
+                    log_success "✓ Claude Opus 병합 완료"
+                    break
+                fi
+
+                retry=$((retry + 1))
+                if [ $retry -lt $MAX_RETRIES ]; then
+                    log_warn "Claude 실행 실패 (시도 $retry/$MAX_RETRIES). ${RETRY_DELAY}초 후 재시도..."
+                    sleep $RETRY_DELAY
+                fi
+            done
+
+            if [ $retry -ge $MAX_RETRIES ]; then
+                log_error "Claude Opus 병합 최종 실패!"
+                cat "$temp_response"
+                return 1
+            fi
+
+            # 병합 결과를 하이브리드 설계 파일로 저장 (메타데이터 헤더 추가)
+            local timestamp=$(date '+%Y-%m-%d %H:%M:%S')
+
+            cat > "$hybrid_design" <<EOF
+# Hybrid Design
+
+**Created**: $timestamp
+**Strategy**: $strategy
+**Sources**: Claude v1 + Gemini v1
+
+---
+
+EOF
+            # AI 응답 내용 추가
+            cat "$temp_response" >> "$hybrid_design"
+
+            log_success "Hybrid 설계 파일 생성 완료: $hybrid_design"
+            ;;
+
+        guided)
+            # Guided 병합 (섹션별 선택)
+            log_step "섹션별 선택 병합 시작..."
+
+            # 섹션 목록 정의
+            local sections=("Architecture" "Components" "API" "Security" "Testing" "Implementation Plan")
+
+            local timestamp=$(date '+%Y-%m-%d %H:%M:%S')
+
+            # 하이브리드 설계 파일 초기화 (메타데이터 헤더)
+            cat > "$hybrid_design" <<EOF
+# Hybrid Design
+
+**Created**: $timestamp
+**Strategy**: guided
+**Sources**: Claude v1 + Gemini v1
+
+---
+
+EOF
+
+            # 각 섹션별로 사용자에게 선택 요청
+            for section in "${sections[@]}"; do
+                echo ""
+                echo "========================================"
+                echo "  섹션: $section"
+                echo "========================================"
+                echo ""
+
+                # Claude 설계에서 해당 섹션 추출 시도
+                local claude_section=$(grep -A 50 -i "^#.*$section" "$claude_design" 2>/dev/null | head -n 51 || echo "(섹션 없음)")
+
+                # Gemini 설계에서 해당 섹션 추출 시도
+                local gemini_section=$(grep -A 50 -i "^#.*$section" "$gemini_design" 2>/dev/null | head -n 51 || echo "(섹션 없음)")
+
+                echo "[A] Claude 설계:"
+                echo "$claude_section" | head -n 20
+                if [ $(echo "$claude_section" | wc -l) -gt 20 ]; then
+                    echo "... (더 보기는 파일 참조)"
+                fi
+                echo ""
+
+                echo "[B] Gemini 설계:"
+                echo "$gemini_section" | head -n 20
+                if [ $(echo "$gemini_section" | wc -l) -gt 20 ]; then
+                    echo "... (더 보기는 파일 참조)"
+                fi
+                echo ""
+
+                # 사용자 선택
+                local section_choice=""
+                while true; do
+                    read -p "선택 (A/B/Both): " section_choice
+
+                    case "$section_choice" in
+                        A|a)
+                            echo "" >> "$hybrid_design"
+                            echo "## $section" >> "$hybrid_design"
+                            echo "" >> "$hybrid_design"
+                            echo "$claude_section" >> "$hybrid_design"
+                            log_success "Claude 설계 선택: $section"
+                            break
+                            ;;
+                        B|b)
+                            echo "" >> "$hybrid_design"
+                            echo "## $section" >> "$hybrid_design"
+                            echo "" >> "$hybrid_design"
+                            echo "$gemini_section" >> "$hybrid_design"
+                            log_success "Gemini 설계 선택: $section"
+                            break
+                            ;;
+                        Both|both|BOTH)
+                            echo "" >> "$hybrid_design"
+                            echo "## $section" >> "$hybrid_design"
+                            echo "" >> "$hybrid_design"
+                            echo "### Claude 설계" >> "$hybrid_design"
+                            echo "" >> "$hybrid_design"
+                            echo "$claude_section" >> "$hybrid_design"
+                            echo "" >> "$hybrid_design"
+                            echo "### Gemini 설계" >> "$hybrid_design"
+                            echo "" >> "$hybrid_design"
+                            echo "$gemini_section" >> "$hybrid_design"
+                            log_success "두 설계 모두 포함: $section"
+                            break
+                            ;;
+                        *)
+                            log_error "잘못된 입력입니다. A, B, 또는 Both를 입력하세요."
+                            ;;
+                    esac
+                done
+            done
+
+            log_success "Guided 병합 완료: $hybrid_design"
+            ;;
+
+        *)
+            log_error "알 수 없는 병합 전략: $strategy"
+            return 1
+            ;;
+    esac
+
+    echo ""
+    log_success "=========================================="
+    log_success "Hybrid 설계 병합 완료!"
+    log_success "=========================================="
+    log_info "Hybrid 설계: $hybrid_design"
+    log_info "로그: $log_file"
+    echo ""
+
+    return 0
+}
+
 # 함수: 최종 설계 파일 생성 (Phase 3: Independent Review)
 create_final_design() {
     local output_dir="$1"
@@ -1899,32 +2195,40 @@ EOF
             ;;
 
         hybrid)
-            # Hybrid 병합 (TODO 8에서 구현 예정)
-            log_warn "Hybrid 병합 기능은 아직 구현되지 않았습니다."
-            log_warn "이 기능은 TODO 8에서 구현될 예정입니다."
-            log_info "임시로 비교 리포트만 저장합니다."
+            # Hybrid 병합 (TODO 8: 구현 완료)
+            log_info "Hybrid 병합 프로세스를 시작합니다..."
 
-            # 메타데이터만 저장
+            # merge_designs_hybrid 함수 호출
+            if ! merge_designs_hybrid "$output_dir"; then
+                log_error "Hybrid 병합 실패"
+                return 1
+            fi
+
+            local hybrid_design="$output_dir/design_hybrid_v1.md"
+
+            # hybrid 설계 파일이 존재하는지 확인
+            if [ ! -f "$hybrid_design" ]; then
+                log_error "Hybrid 설계 파일이 생성되지 않았습니다: $hybrid_design"
+                return 1
+            fi
+
+            log_info "Hybrid 설계를 최종 설계로 복사 중..."
+
+            # 메타데이터 헤더 추가
             cat > "$final_design" <<EOF
-# Final Design (Hybrid - Pending)
+# Final Design
 
-**Source**: Hybrid (Pending Implementation)
+**Source**: Hybrid
 **Selected At**: $timestamp
 **Mode**: Independent Review
 
 ---
 
-**Note**: Hybrid 병합 기능은 TODO 8에서 구현될 예정입니다.
-
-현재 사용 가능한 파일:
-- Claude 설계: design_claude_v1.md
-- Gemini 설계: design_gemini_v1.md
-- 비교 리포트: design_comparison_report.md
-
-수동으로 두 설계를 병합하거나, TODO 8 구현 후 다시 실행해주세요.
 EOF
+            # Hybrid 설계 내용 추가 (헤더 제외)
+            tail -n +2 "$hybrid_design" >> "$final_design"
 
-            log_success "임시 최종 설계 파일 생성 완료: $final_design"
+            log_success "최종 설계 파일 생성 완료: $final_design"
             ;;
 
         later)

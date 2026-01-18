@@ -148,22 +148,23 @@
 
 ---
 
-### ⏳ 8. Hybrid 병합 기능 (3-4시간)
-- [ ] `merge_designs_hybrid()` 함수 생성
-- [ ] 병합 전략 선택 UI
-  - [ ] Best-of-both (각 설계 장점만)
-  - [ ] Guided (섹션별 A/B 선택)
-  - [ ] AI-auto (Claude 자동 병합)
-- [ ] Claude Opus에게 병합 요청
-- [ ] 병합 프롬프트 작성
-- [ ] 병합 결과: `design_hybrid_v1.md`
-- [ ] 로그 저장: `logs/hybrid_merge.log`
-- [ ] **커밋**: `feat: add hybrid design merge function`
-- [ ] **문서 업데이트**: 이 파일의 8번 체크
+### ✅ 8. Hybrid 병합 기능 (3-4시간)
+- [x] `merge_designs_hybrid()` 함수 생성
+- [x] 병합 전략 선택 UI
+  - [x] Best-of-both (각 설계 장점만)
+  - [x] Guided (섹션별 A/B 선택)
+  - [x] AI-auto (Claude 자동 병합)
+- [x] Claude Opus에게 병합 요청
+- [x] 병합 프롬프트 작성
+- [x] 병합 결과: `design_hybrid_v1.md`
+- [x] 로그 저장: `logs/hybrid_merge.log`
+- [x] **커밋**: `feat: add hybrid design merge function`
+- [x] **문서 업데이트**: 이 파일의 8번 체크
 
 **Task ID**: TBD
-**예상 시간**: 3-4시간
+**실제 시간**: 2시간
 **우선순위**: P2
+**완료일**: 2026-01-18
 
 ---
 
@@ -251,12 +252,13 @@
 - [x] 5. 설계 비교 분석 함수
 - [x] 6. 사용자 선택 UI
 - [x] 7. 최종 설계 파일 생성
+- [x] 8. Hybrid 병합 기능
 
 ### 진행 중인 항목
 - [ ] 없음
 
 ### 대기 중인 항목
-- [ ] 8-12번
+- [ ] 9-12번
 
 ---
 
@@ -358,6 +360,7 @@
 | 2026-01-18 | TODO 4: 병렬 실행 함수 완료 | 3112666 |
 | 2026-01-18 | TODO 5: 설계 비교 분석 함수 완료 | df72f58 |
 | 2026-01-18 | TODO 6-7: 사용자 선택 UI 및 최종 설계 파일 생성 완료 | TBD |
+| 2026-01-18 | TODO 8: Hybrid 병합 기능 완료 | TBD |
 
 ---
 
