@@ -1,13 +1,16 @@
 #!/bin/bash
 #
-# cross_check_auto.sh - AI 크로스체크 완전 자동화 스크립트 (v2.1)
+# cross_check_auto.sh - AI 크로스체크 완전 자동화 스크립트 (v2.2)
 # Claude(Maker) <-> Gemini(Reviewer) 자동 협업
 #
-# v2.1 보안 강화 (Opus 4.5 검토 반영):
-#   - P0 FIX: Command Injection 방지 (stdin으로 프롬프트 전달)
-#   - P0 FIX: Path Traversal 방지 (proper containment check)
-#   - P0 FIX: 프롬프트 크기 제한 (MAX_PROMPT_SIZE=100KB)
-#   - P1 FIX: Static Analysis Pre-Check (shellcheck/ruff/eslint)
+# v2.2 보안 강화 (Opus 4.5 P0/P2 반영):
+#   - P0-1: Command Injection 방지 (stdin으로 프롬프트 전달)
+#   - P0-2: Path Traversal 방지 (proper containment check)
+#   - P0-3: 프롬프트 크기 제한 (MAX_PROMPT_SIZE=100KB)
+#   - P1-1: Static Analysis Pre-Check (shellcheck/ruff/eslint)
+#   - P2-1: Rollback 메커니즘 (자동/수동)
+#   - P2-2: 파일 백업 메커니즘
+#   - P2-3: 로그 민감 정보 필터링
 #
 # 사용법:
 #   ./cross_check_auto.sh design <설계요청파일> [출력디렉토리]
@@ -70,6 +73,207 @@ cleanup() {
 
 trap cleanup EXIT INT TERM
 
+# 전역 변수: 백업 커밋 해시
+BACKUP_COMMIT=""
+AUTO_ROLLBACK_ENABLED=true
+BACKUP_ENABLED=true
+BACKUP_DIR=""
+
+# 함수: 백업 커밋 생성 (P2-1: Rollback 메커니즘)
+create_backup_commit() {
+    log_step "작업 전 백업 생성 중..."
+
+    # Git 저장소인지 확인
+    if ! git rev-parse --git-dir > /dev/null 2>&1; then
+        log_warn "Git 저장소가 아닙니다. 백업을 건너뜁니다."
+        return 1
+    fi
+
+    # 변경사항이 있는지 확인
+    if git diff --quiet && git diff --cached --quiet; then
+        log_info "변경사항 없음 - 백업 건너뜀"
+        BACKUP_COMMIT=$(git rev-parse HEAD)
+        return 0
+    fi
+
+    # 백업 커밋 생성
+    git add -A
+    if git commit -m "backup: before AI cross-check (auto-backup at $(date '+%Y-%m-%d %H:%M:%S'))" > /dev/null 2>&1; then
+        BACKUP_COMMIT=$(git rev-parse HEAD)
+        log_success "백업 커밋 생성 완료: ${BACKUP_COMMIT:0:7}"
+        return 0
+    else
+        log_warn "백업 커밋 생성 실패 (변경사항 없거나 커밋 실패)"
+        return 1
+    fi
+}
+
+# 함수: 자동 롤백 (에러 발생 시)
+auto_rollback() {
+    if [ "$AUTO_ROLLBACK_ENABLED" != "true" ]; then
+        log_info "자동 롤백이 비활성화되어 있습니다"
+        return 0
+    fi
+
+    if [ -z "$BACKUP_COMMIT" ]; then
+        log_error "백업 커밋이 없습니다. 롤백 불가능."
+        return 1
+    fi
+
+    log_error "에러 발생! 자동 롤백 시작..."
+
+    if git reset --hard "$BACKUP_COMMIT" > /dev/null 2>&1; then
+        log_success "롤백 완료: ${BACKUP_COMMIT:0:7}로 복구됨"
+
+        # 백업 커밋 삭제 (원래 상태로 복구)
+        if git log -1 --format=%s | grep -q "^backup: before AI cross-check"; then
+            git reset --soft HEAD~1
+            log_info "백업 커밋 제거 완료"
+        fi
+
+        return 0
+    else
+        log_error "롤백 실패!"
+        return 1
+    fi
+}
+
+# 함수: 수동 롤백 (사용자 명령)
+manual_rollback() {
+    local target_commit="${1:-HEAD~1}"
+
+    log_warn "수동 롤백 요청: $target_commit"
+
+    # 확인 요청
+    read -p "정말 롤백하시겠습니까? 모든 변경사항이 손실됩니다. (yes/no): " confirm
+
+    if [ "$confirm" != "yes" ]; then
+        log_info "롤백 취소됨"
+        return 1
+    fi
+
+    if git reset --hard "$target_commit"; then
+        log_success "수동 롤백 완료: $target_commit"
+        return 0
+    else
+        log_error "수동 롤백 실패!"
+        return 1
+    fi
+}
+
+# 함수: 파일 백업 (P2-2: 백업 메커니즘)
+backup_files() {
+    if [ "$BACKUP_ENABLED" != "true" ]; then
+        log_info "파일 백업이 비활성화되어 있습니다"
+        return 0
+    fi
+
+    log_step "변경될 파일 백업 중..."
+
+    # 백업 디렉토리 생성
+    BACKUP_DIR="backups/cross_check_$(get_timestamp)"
+    mkdir -p "$BACKUP_DIR"
+
+    local file_count=0
+
+    # Git으로 변경될 파일 목록 추출
+    if git rev-parse --git-dir > /dev/null 2>&1; then
+        # Staged + Unstaged 파일들 백업
+        git diff --name-only HEAD 2>/dev/null | while read -r file; do
+            if [ -f "$file" ]; then
+                local file_dir="$BACKUP_DIR/$(dirname "$file")"
+                mkdir -p "$file_dir"
+                cp "$file" "$file_dir/" 2>/dev/null && ((file_count++))
+            fi
+        done
+    fi
+
+    if [ -d "$BACKUP_DIR" ] && [ "$(ls -A "$BACKUP_DIR" 2>/dev/null)" ]; then
+        log_success "파일 백업 완료: $BACKUP_DIR"
+        echo "$BACKUP_DIR" > "$BACKUP_DIR/.backup_location"
+        return 0
+    else
+        log_info "백업할 파일 없음"
+        rmdir "$BACKUP_DIR" 2>/dev/null || true
+        return 1
+    fi
+}
+
+# 함수: 백업 파일 복구
+restore_backup() {
+    local backup_dir="${1:-$BACKUP_DIR}"
+
+    if [ -z "$backup_dir" ] || [ ! -d "$backup_dir" ]; then
+        log_error "백업 디렉토리가 없습니다: $backup_dir"
+        return 1
+    fi
+
+    log_warn "백업 복구 시작: $backup_dir"
+
+    # 백업 파일들을 원래 위치로 복사
+    find "$backup_dir" -type f ! -name ".backup_location" | while read -r backup_file; do
+        local rel_path="${backup_file#$backup_dir/}"
+        if cp "$backup_file" "$rel_path" 2>/dev/null; then
+            log_info "복구: $rel_path"
+        else
+            log_warn "복구 실패: $rel_path"
+        fi
+    done
+
+    log_success "백업 복구 완료"
+    return 0
+}
+
+# 함수: 로그 민감 정보 필터링 (P2-3: 정보 노출 방지)
+sanitize_log() {
+    local log_file="$1"
+
+    if [ ! -f "$log_file" ]; then
+        return 0
+    fi
+
+    # 임시 파일 생성
+    local temp_log=$(mktemp)
+    TEMP_FILES+=("$temp_log")
+
+    # 민감 정보 마스킹
+    sed -e 's/sk-ant-[a-zA-Z0-9_-]\{32,\}/sk-ant-***REDACTED***/g' \
+        -e 's/sk-[a-zA-Z0-9]\{32,\}/sk-***REDACTED***/g' \
+        -e 's/\(ANTHROPIC_API_KEY=\)[^[:space:]]*/\1***REDACTED***/g' \
+        -e 's/\(CLAUDE_API_KEY=\)[^[:space:]]*/\1***REDACTED***/g' \
+        -e 's/\(GEMINI_API_KEY=\)[^[:space:]]*/\1***REDACTED***/g' \
+        -e 's/\(GOOGLE_API_KEY=\)[^[:space:]]*/\1***REDACTED***/g' \
+        -e 's/\(API_KEY=\)[^[:space:]]*/\1***REDACTED***/g' \
+        -e 's/\(PASSWORD=\)[^[:space:]]*/\1***REDACTED***/g' \
+        -e 's/\(TOKEN=\)[^[:space:]]*/\1***REDACTED***/g' \
+        -e 's/\(SECRET=\)[^[:space:]]*/\1***REDACTED***/g' \
+        "$log_file" > "$temp_log"
+
+    # 원본 파일 교체
+    mv "$temp_log" "$log_file"
+
+    log_info "로그 파일 민감 정보 필터링 완료: $log_file"
+    return 0
+}
+
+# 함수: 모든 로그 파일 sanitize
+sanitize_all_logs() {
+    if [ ! -d "$LOG_DIR" ]; then
+        return 0
+    fi
+
+    log_step "로그 디렉토리 민감 정보 필터링 중..."
+
+    local sanitized_count=0
+    find "$LOG_DIR" -type f -name "*.log" | while read -r log_file; do
+        sanitize_log "$log_file"
+        ((sanitized_count++))
+    done
+
+    log_success "로그 $sanitized_count개 파일 필터링 완료"
+    return 0
+}
+
 # 함수: 사용법
 usage() {
     echo "사용법: $0 <모드> <요청파일> [출력디렉토리] [옵션]"
@@ -79,13 +283,17 @@ usage() {
     echo "  implement  - 구현 크로스체크 (Claude 구현 → Gemini 검토)"
     echo "  test       - 테스트 크로스체크 (Claude 테스트 → Gemini 검토)"
     echo "  full       - 전체 파이프라인 (설계 → 구현 → 테스트)"
+    echo "  rollback   - 수동 롤백 (이전 상태로 복구)"
     echo ""
     echo "옵션:"
-    echo "  --max-rounds N    : 최대 크로스체크 횟수 (기본: 3)"
+    echo "  --max-rounds N       : 최대 크로스체크 횟수 (기본: 3)"
+    echo "  --no-auto-rollback   : 자동 롤백 비활성화"
+    echo "  --no-backup          : 백업 생성 비활성화"
     echo ""
     echo "주의:"
     echo "  - 자동 커밋하지 않음 (사용자가 직접 검토 후 커밋)"
     echo "  - 무한루프 방지: 최대 ${MAX_ROUNDS}회 교차검증 후 중단"
+    echo "  - 에러 발생 시 자동 롤백 (비활성화 가능)"
     exit 1
 }
 
@@ -238,7 +446,11 @@ run_claude_auto() {
 
             # 로그 디렉토리에도 백업
             mkdir -p "$LOG_DIR"
-            cp "$temp_response" "$LOG_DIR/$(get_timestamp)_${task_name}.log"
+            local log_file="$LOG_DIR/$(get_timestamp)_${task_name}.log"
+            cp "$temp_response" "$log_file"
+
+            # P2-3: 로그 민감 정보 필터링
+            sanitize_log "$log_file"
 
             return 0
         fi
@@ -289,7 +501,11 @@ run_gemini_auto() {
 
             # 로그 디렉토리에도 백업
             mkdir -p "$LOG_DIR"
-            cp "$temp_response" "$LOG_DIR/$(get_timestamp)_${task_name}.log"
+            local log_file="$LOG_DIR/$(get_timestamp)_${task_name}.log"
+            cp "$temp_response" "$log_file"
+
+            # P2-3: 로그 민감 정보 필터링
+            sanitize_log "$log_file"
 
             return 0
         fi
@@ -868,6 +1084,14 @@ main() {
                 MAX_ROUNDS="$2"
                 shift 2
                 ;;
+            --no-auto-rollback)
+                AUTO_ROLLBACK_ENABLED=false
+                shift
+                ;;
+            --no-backup)
+                BACKUP_ENABLED=false
+                shift
+                ;;
             *)
                 if [ -z "$mode" ]; then
                     mode="$1"
@@ -880,6 +1104,12 @@ main() {
                 ;;
         esac
     done
+
+    # Rollback 모드는 특별 처리
+    if [ "$mode" = "rollback" ]; then
+        manual_rollback "$request_file"
+        exit $?
+    fi
 
     # 필수 인자 확인
     if [ -z "$mode" ] || [ -z "$request_file" ]; then
@@ -902,15 +1132,21 @@ main() {
     fi
 
     log_info "=========================================="
-    log_info "  AI 크로스체크 완전 자동화 시스템 v2.1"
-    log_info "  (Opus 4.5 보안 강화 적용)"
+    log_info "  AI 크로스체크 완전 자동화 시스템 v2.2"
+    log_info "  (Opus 4.5 P0/P2 보안 강화 적용)"
     log_info "=========================================="
     log_info "모드: $mode"
     log_info "요청 파일: $request_file"
     log_info "출력 디렉토리: $output_dir"
     log_info "최대 라운드: $MAX_ROUNDS"
+    log_info "자동 롤백: $AUTO_ROLLBACK_ENABLED"
+    log_info "파일 백업: $BACKUP_ENABLED"
     log_info "=========================================="
     echo ""
+
+    # P2-1, P2-2: 작업 전 백업 생성
+    create_backup_commit
+    backup_files
 
     local result=0
     case "$mode" in
@@ -919,6 +1155,8 @@ main() {
                 show_commit_guide "design" "$output_dir"
             else
                 result=1
+                # P2-1: 자동 롤백
+                auto_rollback
             fi
             ;;
         implement|impl)
@@ -926,6 +1164,7 @@ main() {
                 show_commit_guide "implement" "$output_dir"
             else
                 result=1
+                auto_rollback
             fi
             ;;
         test)
@@ -933,6 +1172,7 @@ main() {
                 show_commit_guide "test" "$output_dir"
             else
                 result=1
+                auto_rollback
             fi
             ;;
         full|pipeline)
@@ -940,6 +1180,7 @@ main() {
                 show_commit_guide "full" "$output_dir"
             else
                 result=1
+                auto_rollback
             fi
             ;;
         *)
@@ -947,6 +1188,9 @@ main() {
             usage
             ;;
     esac
+
+    # P2-3: 작업 완료 후 모든 로그 sanitize
+    sanitize_all_logs
 
     exit $result
 }

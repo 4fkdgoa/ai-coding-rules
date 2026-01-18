@@ -16,6 +16,9 @@ logs/
 *.tmp
 *.bak
 
+# Backups
+backups/
+
 # Node
 node_modules/
 
