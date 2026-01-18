@@ -1709,6 +1709,268 @@ JSON 형식으로만 응답해주세요."
     return 0
 }
 
+# 함수: 사용자 설계 선택 UI (Phase 3: Independent Review)
+user_select_design() {
+    local output_dir="$1"
+
+    log_step "=== 사용자 설계 선택 ==="
+    log_info "출력 디렉토리: $output_dir"
+
+    local comparison_json="$output_dir/comparison_result.json"
+    local metadata_file="$output_dir/metadata.json"
+
+    # 비교 결과 JSON 파일 존재 확인
+    if [ ! -f "$comparison_json" ]; then
+        log_error "비교 결과 JSON 파일이 존재하지 않습니다: $comparison_json"
+        return 1
+    fi
+
+    # jq 설치 확인
+    if ! command -v jq &> /dev/null; then
+        log_error "jq가 설치되지 않았습니다."
+        return 1
+    fi
+
+    # JSON 파싱하여 화면에 출력
+    echo ""
+    echo "========================================"
+    echo "  설계 비교 결과"
+    echo "========================================"
+    echo ""
+
+    # 공통점 출력
+    echo "[공통점]"
+    jq -r '.commonalities[]? // empty | "- " + .' "$comparison_json" 2>/dev/null || echo "- (정보 없음)"
+    echo ""
+
+    # Claude 설계 특징
+    echo "[Claude 설계 (A)의 특징]"
+    echo "강점:"
+    jq -r '.analysis.claude_pros[]? // empty | "+ " + .' "$comparison_json" 2>/dev/null || echo "+ (정보 없음)"
+    echo "약점:"
+    jq -r '.analysis.claude_cons[]? // empty | "- " + .' "$comparison_json" 2>/dev/null || echo "- (정보 없음)"
+    echo ""
+
+    # Gemini 설계 특징
+    echo "[Gemini 설계 (B)의 특징]"
+    echo "강점:"
+    jq -r '.analysis.gemini_pros[]? // empty | "+ " + .' "$comparison_json" 2>/dev/null || echo "+ (정보 없음)"
+    echo "약점:"
+    jq -r '.analysis.gemini_cons[]? // empty | "- " + .' "$comparison_json" 2>/dev/null || echo "- (정보 없음)"
+    echo ""
+
+    # 추천사항 출력
+    echo "[추천]"
+    local preferred=$(jq -r '.recommendation.preferred // "정보 없음"' "$comparison_json" 2>/dev/null)
+    local reasoning=$(jq -r '.recommendation.reasoning // "정보 없음"' "$comparison_json" 2>/dev/null)
+    echo "추천: $preferred"
+    echo "이유: $reasoning"
+    echo ""
+
+    # 선택 메뉴 출력
+    echo "========================================"
+    echo "  선택하세요:"
+    echo "========================================"
+    echo ""
+    echo "1) Claude 설계 (A) 선택"
+    echo "2) Gemini 설계 (B) 선택"
+    echo "3) Hybrid (두 설계 병합)"
+    echo "4) 비교 리포트만 저장하고 나중에 결정"
+    echo ""
+
+    # 사용자 입력 받기 (유효성 검증)
+    local user_choice=""
+    local selection=""
+
+    while true; do
+        read -p "선택 (1-4): " user_choice
+
+        case "$user_choice" in
+            1)
+                selection="claude"
+                log_success "Claude 설계를 선택했습니다."
+                break
+                ;;
+            2)
+                selection="gemini"
+                log_success "Gemini 설계를 선택했습니다."
+                break
+                ;;
+            3)
+                selection="hybrid"
+                log_success "Hybrid 병합을 선택했습니다."
+                break
+                ;;
+            4)
+                selection="later"
+                log_success "나중에 결정하기로 했습니다."
+                break
+                ;;
+            *)
+                log_error "잘못된 입력입니다. 1-4 사이의 숫자를 입력하세요."
+                ;;
+        esac
+    done
+
+    # 메타데이터 저장
+    local timestamp=$(date -u +"%Y-%m-%dT%H:%M:%SZ")
+    cat > "$metadata_file" <<EOF
+{
+  "timestamp": "$timestamp",
+  "mode": "independent",
+  "selection": "$selection",
+  "user_input": $user_choice
+}
+EOF
+
+    log_success "선택 정보 저장: $metadata_file"
+    echo ""
+
+    # 선택된 값을 반환 (create_final_design 함수에서 사용)
+    echo "$selection"
+    return 0
+}
+
+# 함수: 최종 설계 파일 생성 (Phase 3: Independent Review)
+create_final_design() {
+    local output_dir="$1"
+    local selection="$2"
+
+    log_step "=== 최종 설계 파일 생성 ==="
+    log_info "출력 디렉토리: $output_dir"
+    log_info "선택: $selection"
+
+    local claude_design="$output_dir/design_claude_v1.md"
+    local gemini_design="$output_dir/design_gemini_v1.md"
+    local final_design="$output_dir/design_final.md"
+    local timestamp=$(date '+%Y-%m-%d %H:%M:%S')
+
+    case "$selection" in
+        claude)
+            # Claude 설계 복사
+            if [ ! -f "$claude_design" ]; then
+                log_error "Claude 설계 파일이 존재하지 않습니다: $claude_design"
+                return 1
+            fi
+
+            log_info "Claude 설계를 최종 설계로 복사 중..."
+
+            # 메타데이터 헤더 추가
+            cat > "$final_design" <<EOF
+# Final Design
+
+**Source**: Claude
+**Selected At**: $timestamp
+**Mode**: Independent Review
+
+---
+
+EOF
+            # 원본 내용 추가
+            cat "$claude_design" >> "$final_design"
+
+            log_success "최종 설계 파일 생성 완료: $final_design"
+            ;;
+
+        gemini)
+            # Gemini 설계 복사
+            if [ ! -f "$gemini_design" ]; then
+                log_error "Gemini 설계 파일이 존재하지 않습니다: $gemini_design"
+                return 1
+            fi
+
+            log_info "Gemini 설계를 최종 설계로 복사 중..."
+
+            # 메타데이터 헤더 추가
+            cat > "$final_design" <<EOF
+# Final Design
+
+**Source**: Gemini
+**Selected At**: $timestamp
+**Mode**: Independent Review
+
+---
+
+EOF
+            # 원본 내용 추가
+            cat "$gemini_design" >> "$final_design"
+
+            log_success "최종 설계 파일 생성 완료: $final_design"
+            ;;
+
+        hybrid)
+            # Hybrid 병합 (TODO 8에서 구현 예정)
+            log_warn "Hybrid 병합 기능은 아직 구현되지 않았습니다."
+            log_warn "이 기능은 TODO 8에서 구현될 예정입니다."
+            log_info "임시로 비교 리포트만 저장합니다."
+
+            # 메타데이터만 저장
+            cat > "$final_design" <<EOF
+# Final Design (Hybrid - Pending)
+
+**Source**: Hybrid (Pending Implementation)
+**Selected At**: $timestamp
+**Mode**: Independent Review
+
+---
+
+**Note**: Hybrid 병합 기능은 TODO 8에서 구현될 예정입니다.
+
+현재 사용 가능한 파일:
+- Claude 설계: design_claude_v1.md
+- Gemini 설계: design_gemini_v1.md
+- 비교 리포트: design_comparison_report.md
+
+수동으로 두 설계를 병합하거나, TODO 8 구현 후 다시 실행해주세요.
+EOF
+
+            log_success "임시 최종 설계 파일 생성 완료: $final_design"
+            ;;
+
+        later)
+            # 나중에 결정 - 비교 리포트만 저장
+            log_info "비교 리포트만 저장합니다. 최종 설계 파일은 생성하지 않습니다."
+            log_info "나중에 design_claude_v1.md 또는 design_gemini_v1.md를 선택하여 사용하세요."
+
+            # 안내 파일 생성
+            cat > "$final_design" <<EOF
+# Final Design (Pending User Decision)
+
+**Source**: Pending
+**Selected At**: $timestamp
+**Mode**: Independent Review
+
+---
+
+**Note**: 사용자가 나중에 결정하기로 선택했습니다.
+
+사용 가능한 파일:
+- Claude 설계: design_claude_v1.md
+- Gemini 설계: design_gemini_v1.md
+- 비교 리포트: design_comparison_report.md
+
+원하는 설계를 선택하여 design_final.md로 복사하거나, 다시 스크립트를 실행해주세요.
+EOF
+
+            log_success "안내 파일 생성 완료: $final_design"
+            ;;
+
+        *)
+            log_error "알 수 없는 선택: $selection"
+            return 1
+            ;;
+    esac
+
+    echo ""
+    log_success "=========================================="
+    log_success "최종 설계 파일 생성 완료!"
+    log_success "=========================================="
+    log_info "최종 설계: $final_design"
+    echo ""
+
+    return 0
+}
+
 # 함수: 설계 크로스체크 (자동)
 cross_check_design_auto() {
     local request_file="$1"

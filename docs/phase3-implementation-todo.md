@@ -106,43 +106,45 @@
 
 ---
 
-### ⏳ 6. 사용자 선택 UI (2-3시간)
-- [ ] `user_select_design()` 함수 생성
-- [ ] 비교 리포트 출력 (터미널 포맷팅)
-  - [ ] 공통점 섹션
-  - [ ] Claude 설계 특징
-  - [ ] Gemini 설계 특징
-  - [ ] 추천사항
-- [ ] 사용자 입력 받기 (1-4 선택)
-  - [ ] 1: Claude 설계 선택
-  - [ ] 2: Gemini 설계 선택
-  - [ ] 3: Hybrid 병합
-  - [ ] 4: 나중에 결정
-- [ ] 선택 검증 (1-4 외 입력 시 재요청)
-- [ ] 선택 결과 저장: `metadata.json`
-- [ ] **커밋**: `feat: add user design selection UI`
-- [ ] **문서 업데이트**: 이 파일의 6번 체크
+### ✅ 6. 사용자 선택 UI (2-3시간)
+- [x] `user_select_design()` 함수 생성
+- [x] 비교 리포트 출력 (터미널 포맷팅)
+  - [x] 공통점 섹션
+  - [x] Claude 설계 특징
+  - [x] Gemini 설계 특징
+  - [x] 추천사항
+- [x] 사용자 입력 받기 (1-4 선택)
+  - [x] 1: Claude 설계 선택
+  - [x] 2: Gemini 설계 선택
+  - [x] 3: Hybrid 병합
+  - [x] 4: 나중에 결정
+- [x] 선택 검증 (1-4 외 입력 시 재요청)
+- [x] 선택 결과 저장: `metadata.json`
+- [x] **커밋**: `feat: add user design selection UI and final design creation`
+- [x] **문서 업데이트**: 이 파일의 6번 체크
 
 **Task ID**: TBD
-**예상 시간**: 2-3시간
+**실제 시간**: 1시간
 **우선순위**: P1
+**완료일**: 2026-01-18
 
 ---
 
-### ⏳ 7. 최종 설계 파일 생성 (1시간)
-- [ ] `create_final_design()` 함수 생성
-- [ ] 선택에 따른 파일 복사 로직
-  - [ ] 1번: `design_claude_v1.md` → `design_final.md`
-  - [ ] 2번: `design_gemini_v1.md` → `design_final.md`
-  - [ ] 3번: Hybrid 함수 호출
-  - [ ] 4번: 비교 리포트만 저장
-- [ ] 최종 설계 메타데이터 기록
-- [ ] **커밋**: `feat: add final design file creation`
-- [ ] **문서 업데이트**: 이 파일의 7번 체크
+### ✅ 7. 최종 설계 파일 생성 (1시간)
+- [x] `create_final_design()` 함수 생성
+- [x] 선택에 따른 파일 복사 로직
+  - [x] 1번: `design_claude_v1.md` → `design_final.md`
+  - [x] 2번: `design_gemini_v1.md` → `design_final.md`
+  - [x] 3번: Hybrid 함수 호출 (placeholder)
+  - [x] 4번: 비교 리포트만 저장
+- [x] 최종 설계 메타데이터 기록
+- [x] **커밋**: `feat: add user design selection UI and final design creation`
+- [x] **문서 업데이트**: 이 파일의 7번 체크
 
 **Task ID**: TBD
-**예상 시간**: 1시간
+**실제 시간**: 1시간
 **우선순위**: P1
+**완료일**: 2026-01-18
 
 ---
 
@@ -247,12 +249,14 @@
 - [x] 3. 독립적 설계 생성 함수 - Gemini
 - [x] 4. 병렬 실행 함수
 - [x] 5. 설계 비교 분석 함수
+- [x] 6. 사용자 선택 UI
+- [x] 7. 최종 설계 파일 생성
 
 ### 진행 중인 항목
 - [ ] 없음
 
 ### 대기 중인 항목
-- [ ] 6-12번
+- [ ] 8-12번
 
 ---
 
@@ -353,8 +357,9 @@
 | 2026-01-18 | TODO 2-3: Claude & Gemini 독립 설계 함수 완료 | ca5704d |
 | 2026-01-18 | TODO 4: 병렬 실행 함수 완료 | 3112666 |
 | 2026-01-18 | TODO 5: 설계 비교 분석 함수 완료 | df72f58 |
+| 2026-01-18 | TODO 6-7: 사용자 선택 UI 및 최종 설계 파일 생성 완료 | TBD |
 
 ---
 
-**작성자**: Claude Haiku 4.5
+**작성자**: Claude Haiku 4.5 & Claude Sonnet 4.5
 **최종 업데이트**: 2026-01-18
