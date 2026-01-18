@@ -168,26 +168,27 @@
 
 ---
 
-### ⏳ 9. 메인 함수 통합 (1-2시간)
-- [ ] `main()` 함수에 independent 모드 케이스 추가
-- [ ] `case "$mode" in design)` 분기 수정
-  - [ ] 기존 design: `cross_check_design_auto()`
-  - [ ] independent: 새 워크플로우
-- [ ] 디렉토리 구조 생성
-  - [ ] `output/independent_design_TIMESTAMP/`
-  - [ ] `logs/` 하위 디렉토리
-- [ ] 워크플로우 순서 정의
+### ✅ 9. 메인 함수 통합 (1-2시간)
+- [x] `main()` 함수에 independent 모드 케이스 추가
+- [x] `case "$mode" in design)` 분기 수정
+  - [x] 기존 design: `cross_check_design_auto()`
+  - [x] independent: 새 워크플로우
+- [x] 디렉토리 구조 생성
+  - [x] `output/independent_design_TIMESTAMP/`
+  - [x] `logs/` 하위 디렉토리
+- [x] 워크플로우 순서 정의
   1. 병렬 독립 설계
   2. 비교 분석
   3. 사용자 선택
   4. 최종 파일 생성
-- [ ] 에러 처리 및 롤백
-- [ ] **커밋**: `feat: integrate independent mode into main workflow`
-- [ ] **문서 업데이트**: 이 파일의 9번 체크
+- [x] 에러 처리 및 롤백
+- [x] **커밋**: `feat: integrate independent mode into main workflow`
+- [x] **문서 업데이트**: 이 파일의 9번 체크
 
 **Task ID**: TBD
-**예상 시간**: 1-2시간
+**실제 시간**: 30분
 **우선순위**: P1
+**완료일**: 2026-01-18
 
 ---
 
@@ -253,12 +254,13 @@
 - [x] 6. 사용자 선택 UI
 - [x] 7. 최종 설계 파일 생성
 - [x] 8. Hybrid 병합 기능
+- [x] 9. 메인 함수 통합
 
 ### 진행 중인 항목
 - [ ] 없음
 
 ### 대기 중인 항목
-- [ ] 9-12번
+- [ ] 10-12번
 
 ---
 
@@ -361,6 +363,7 @@
 | 2026-01-18 | TODO 5: 설계 비교 분석 함수 완료 | df72f58 |
 | 2026-01-18 | TODO 6-7: 사용자 선택 UI 및 최종 설계 파일 생성 완료 | TBD |
 | 2026-01-18 | TODO 8: Hybrid 병합 기능 완료 | TBD |
+| 2026-01-18 | TODO 9: 메인 함수 통합 완료 | TBD |
 
 ---
 

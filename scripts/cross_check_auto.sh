@@ -2918,10 +2918,50 @@ main() {
     case "$mode" in
         design)
             if [ "$REVIEW_MODE" = "independent" ]; then
-                log_info "Independent review mode - 구현 예정"
-                # TODO: implement independent workflow
-                log_warn "독립적 설계 비교 모드는 아직 구현되지 않았습니다."
-                result=1
+                # Independent Review Workflow
+                log_step "=========================================="
+                log_step "  Phase 3: Independent Review Mode"
+                log_step "=========================================="
+
+                # Step 1: Create output directory structure
+                mkdir -p "$output_dir/logs"
+
+                # Step 2: Parallel independent design
+                if ! independent_design_parallel "$request_file" "$output_dir"; then
+                    log_error "독립 설계 생성 실패"
+                    result=1
+                    auto_rollback
+                else
+                    # Step 3: Compare designs
+                    if ! compare_designs "$output_dir"; then
+                        log_error "설계 비교 실패"
+                        result=1
+                        auto_rollback
+                    else
+                        # Step 4: User selection
+                        if ! user_select_design "$output_dir"; then
+                            log_error "사용자 선택 실패"
+                            result=1
+                            auto_rollback
+                        else
+                            # Step 5: Create final design
+                            if ! create_final_design "$output_dir"; then
+                                log_error "최종 설계 생성 실패"
+                                result=1
+                                auto_rollback
+                            else
+                                # Success
+                                log_success "=========================================="
+                                log_success "  Independent Review 완료!"
+                                log_success "=========================================="
+                                log_info "결과 디렉토리: $output_dir"
+                                log_info "최종 설계: $output_dir/design_final.md"
+                                log_info "비교 리포트: $output_dir/design_comparison_report.md"
+                                auto_commit "independent_design" "$output_dir"
+                            fi
+                        fi
+                    fi
+                fi
             else
                 if cross_check_design_auto "$request_file" "$output_dir"; then
                     auto_commit "design" "$output_dir"
