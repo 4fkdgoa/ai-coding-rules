@@ -69,16 +69,37 @@ run_gemini() {
 }
 
 # 함수: 결과 파일에서 승인/반려 판정
+# 보안 수정: 명시적 태그 검색으로 오탐 방지
+# AI가 마지막에 [승인], [APPROVED], [수정 필요], [REJECTED] 태그를 출력하도록 프롬프트에 요청
 check_approval() {
     local review_file="$1"
 
-    # 승인 키워드 확인
-    if grep -qiE "(승인|APPROVED|LGTM|통과|문제.*없)" "$review_file" 2>/dev/null; then
-        if ! grep -qiE "(반려|REJECTED|수정.*필요|문제.*있|개선.*필요)" "$review_file" 2>/dev/null; then
-            return 0  # 승인
+    # 파일이 없으면 실패
+    [ ! -f "$review_file" ] && return 1
+
+    # 파일 마지막 20줄에서 명시적 태그 검색 (더 정확한 판정)
+    local tail_content
+    tail_content=$(tail -20 "$review_file" 2>/dev/null)
+
+    # 명시적 거부 태그 우선 확인 (더 엄격한 검사)
+    if echo "$tail_content" | grep -qE "\[(수정.*필요|REJECTED|반려|거부)\]"; then
+        return 1  # 명시적 거부
+    fi
+
+    # 명시적 승인 태그 확인
+    if echo "$tail_content" | grep -qE "\[(승인|APPROVED|LGTM|통과)\]"; then
+        return 0  # 명시적 승인
+    fi
+
+    # 태그가 없으면 기존 로직으로 폴백 (하위 호환성)
+    if grep -qiE "(승인|APPROVED|LGTM)" "$review_file" 2>/dev/null; then
+        if ! grep -qiE "(반려|REJECTED|수정.*필요|개선.*필요)" "$review_file" 2>/dev/null; then
+            log_warn "명시적 태그 없음. 키워드 기반 승인 (오탐 가능성 있음)"
+            return 0
         fi
     fi
-    return 1  # 반려 또는 수정 필요
+
+    return 1  # 반려 또는 판정 불가
 }
 
 # 함수: 설계 크로스체크
