@@ -30,38 +30,40 @@
 
 ---
 
-### ⏳ 2. 독립적 설계 생성 함수 - Claude (2-3시간)
-- [ ] `run_claude_design_independent()` 함수 생성
-- [ ] 독립 설계용 프롬프트 작성
-  - [ ] "다른 AI 참고하지 말고 독립적으로" 명시
-  - [ ] JSON 스키마 형식 요구
-  - [ ] 설계 가이드라인 포함
-- [ ] 출력 파일: `design_claude_v1.md`
-- [ ] 로그 저장: `logs/claude_design_independent.log`
-- [ ] 에러 처리 및 재시도 로직
-- [ ] **커밋**: `feat: add Claude independent design function`
-- [ ] **문서 업데이트**: 이 파일의 2번 체크
+### ✅ 2. 독립적 설계 생성 함수 - Claude (2-3시간)
+- [x] `run_claude_design_independent()` 함수 생성
+- [x] 독립 설계용 프롬프트 작성
+  - [x] "다른 AI 참고하지 말고 독립적으로" 명시
+  - [x] JSON 스키마 형식 요구
+  - [x] 설계 가이드라인 포함
+- [x] 출력 파일: `design_claude_v1.md`
+- [x] 로그 저장: `logs/claude_design_independent.log`
+- [x] 에러 처리 및 재시도 로직
+- [x] **커밋**: `feat: add Claude and Gemini independent design functions`
+- [x] **문서 업데이트**: 이 파일의 2번 체크
 
-**Task ID**: TBD
-**예상 시간**: 2-3시간
+**Task ID**: ca5704d
+**실제 시간**: 1시간
 **우선순위**: P0
+**완료일**: 2026-01-18
 
 ---
 
-### ⏳ 3. 독립적 설계 생성 함수 - Gemini (2-3시간)
-- [ ] `run_gemini_design_independent()` 함수 생성
-- [ ] 독립 설계용 프롬프트 작성
-  - [ ] Claude와 동일한 가이드라인
-  - [ ] JSON 스키마 형식 요구
-- [ ] 출력 파일: `design_gemini_v1.md`
-- [ ] 로그 저장: `logs/gemini_design_independent.log`
-- [ ] 에러 처리 및 재시도 로직
-- [ ] **커밋**: `feat: add Gemini independent design function`
-- [ ] **문서 업데이트**: 이 파일의 3번 체크
+### ✅ 3. 독립적 설계 생성 함수 - Gemini (2-3시간)
+- [x] `run_gemini_design_independent()` 함수 생성
+- [x] 독립 설계용 프롬프트 작성
+  - [x] Claude와 동일한 가이드라인
+  - [x] JSON 스키마 형식 요구
+- [x] 출력 파일: `design_gemini_v1.md`
+- [x] 로그 저장: `logs/gemini_design_independent.log`
+- [x] 에러 처리 및 재시도 로직
+- [x] **커밋**: `feat: add Claude and Gemini independent design functions`
+- [x] **문서 업데이트**: 이 파일의 3번 체크
 
-**Task ID**: TBD
-**예상 시간**: 2-3시간
+**Task ID**: ca5704d
+**실제 시간**: 1시간 (TODO 2와 병합)
 **우선순위**: P0
+**완료일**: 2026-01-18
 
 ---
 
@@ -239,12 +241,14 @@
 ### 완료된 항목
 - [x] 0. 사전 준비
 - [x] 1. 옵션 파싱 및 기본 구조
+- [x] 2. 독립적 설계 생성 함수 - Claude
+- [x] 3. 독립적 설계 생성 함수 - Gemini
 
 ### 진행 중인 항목
 - [ ] 없음
 
 ### 대기 중인 항목
-- [ ] 2-12번 전체
+- [ ] 4-12번
 
 ---
 
@@ -341,7 +345,8 @@
 | 날짜 | 작업 | 커밋 |
 |------|------|------|
 | 2026-01-18 | TODO 1: 옵션 파싱 및 기본 구조 완료 | 20890df |
-| 2026-01-18 | TODO 문서 작성 | TBD |
+| 2026-01-18 | TODO 문서 작성 | 8d3c1d4 |
+| 2026-01-18 | TODO 2-3: Claude & Gemini 독립 설계 함수 완료 | ca5704d |
 
 ---
 
