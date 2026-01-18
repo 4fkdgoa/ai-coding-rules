@@ -1,8 +1,8 @@
-# AI 크로스체크 자동화 시스템 v3.0 설계
+# AI 크로스체크 자동화 시스템 v3.0 설계 (최종)
 
-**작성일**: 2026-01-17
-**버전**: 3.0 (설계)
-**이전 버전**: v2.0 (구현 완료, 9/10 승인)
+**작성일**: 2026-01-17 (업데이트: 2026-01-18)
+**버전**: 3.0 (설계 - Opus/GPT 피드백 반영)
+**이전 버전**: v2.2 (구현 완료, P0/P1/P2 보안 강화 적용)
 
 ---
 
@@ -21,46 +21,59 @@
 
 ## 1. 개요
 
-### 1.1 배경
+### 1.1 배경 및 현재 상태
 
-AI 크로스체크 시스템 v2.0은 Opus 4.5로부터 9/10 승인을 받았으나, **Grok의 보안 감사 결과 다수의 치명적 취약점**이 발견되었습니다.
+**v2.0 → v2.2 진행 상황**:
 
-**근본 원인**:
+AI 크로스체크 시스템 v2.0은 Opus 4.5로부터 7/10 평가를 받았으며, **3개의 P0 보안 취약점**이 발견되었습니다.
+
+이후 Opus 4.5와 GPT 5.1 mini의 피드백을 기반으로:
+- ✅ **v2.1**: P0/P1 보안 문제 수정 완료 (커밋 a69c324)
+- ✅ **v2.2**: P2 보안 강화 추가 완료 (커밋 4fd1a78)
+
+**현재 상태 (v2.2)**:
+- Command Injection, Path Traversal, DoS 공격 방어 ✅
+- Static Analysis Pre-Check (shellcheck/ruff/eslint) ✅
+- Rollback 메커니즘 (자동/수동) ✅
+- 파일 백업 & 로그 민감정보 필터링 ✅
+
+**여전히 남은 근본 문제 (v3.0에서 해결할 것)**:
 - AI 리뷰어가 Maker(Claude)가 작성한 결과물에 갇혀 독립적 관점 부족
 - 보안 취약점을 발견하지 못하는 "Confirmation Bias"
 - 체크리스트 기반 리뷰로 인한 스코프 제한
 
-### 1.2 v2.0에서 발견된 주요 문제
+### 1.2 발견된 문제 및 해결 현황
 
-#### P0 (Critical) - 즉시 수정 필요
+#### P0 (Critical) - ✅ v2.1에서 해결 완료
+
+| ID | 문제 | v2.2 해결 방법 | 발견자 |
+|----|------|----------------|--------|
+| **P0-1** | **Path Traversal** | `validate_output_dir()` - proper containment | Opus 4.5 |
+| **P0-2** | **Command Injection** | stdin으로 프롬프트 전달 | Opus 4.5 |
+| **P0-3** | **DoS 공격** | MAX_PROMPT_SIZE=100KB 제한 | Opus 4.5 |
+
+#### P1 (High) - ✅ v2.1에서 해결 완료
+
+| ID | 문제 | v2.2 해결 방법 | 발견자 |
+|----|------|----------------|--------|
+| P1-1 | Static Analysis 부재 | shellcheck/ruff/eslint pre-check | Opus 4.5 |
+
+#### P2 (Medium) - ✅ v2.2에서 해결 완료
+
+| ID | 문제 | v2.2 해결 방법 | 발견자 |
+|----|------|----------------|--------|
+| P2-1 | Rollback 메커니즘 없음 | 자동/수동 롤백 추가 | Opus 4.5 |
+| P2-2 | 백업 메커니즘 없음 | 파일 백업 (backups/) | Opus 4.5 |
+| P2-3 | 로그 민감정보 노출 | API 키 자동 마스킹 | Opus 4.5 |
+
+#### P3 (Architectural) - ⚠️ v3.0에서 해결 예정
 
 | ID | 문제 | 영향 | 발견자 |
 |----|------|------|--------|
-| **P0-1** | **Path Traversal 취약점** | 프로젝트 외부 파일 덮어쓰기 가능 | Grok |
-| **P0-2** | **Command Injection** | 악의적 명령어 실행 가능 | Grok |
-
-#### P1 (High) - 우선 수정
-
-| ID | 문제 | 영향 | 발견자 |
-|----|------|------|--------|
-| P1-1 | CLI 가용성 사전 체크 없음 | 실행 중 실패 | Grok |
-| P1-2 | 모델 유효성 검사 없음 | 잘못된 모델 ID로 실패 | Grok |
-| P1-3 | 로그 파일 이름 충돌 가능 | 동시 실행 시 덮어쓰기 | Grok |
-
-#### P2 (Medium) - 권장 수정
-
-| ID | 문제 | 영향 | 발견자 |
-|----|------|------|--------|
-| P2-1 | .gitignore 자동 생성 없음 | 로그 파일 커밋 가능 | Grok |
-| P2-2 | PowerShell 스크립트 인코딩 | 한글 깨짐 | Grok, 사용자 |
-| P2-3 | 로그 파일 크기 관리 없음 | 디스크 공간 증가 | Grok |
-
-#### P3 (Design Issue) - 아키텍처 문제
-
-| ID | 문제 | 영향 | 발견자 |
-|----|------|------|--------|
-| **P3-1** | **Reviewer가 Maker 결과에 의존** | 새로운 취약점 발견 불가 | 사용자, 분석 |
-| **P3-2** | **단일 리뷰 관점 (Gemini만)** | 다양한 관점 부족 | 사용자 |
+| **P3-1** | **Reviewer가 Maker 결과에 의존** | 새로운 취약점 발견 불가 | Opus, GPT |
+| **P3-2** | **단일 리뷰 관점 (Gemini만)** | 다양한 관점 부족 | Opus, GPT |
+| **P3-3** | **비용/시간 추정 비현실적** | 예산 초과, 일정 지연 | Opus 4.5 |
+| **P3-4** | **표준 출력 형식 없음** | AI 간 호환성 부족 | GPT 5.1 mini |
 
 ---
 
@@ -552,59 +565,138 @@ audit_log "SECURITY_ISSUE" "type=Path_Traversal, severity=P0"
 
 ## 7. 구현 계획
 
-### 7.1 Phase 1: 보안 패치 (v3.0-alpha)
+### 7.1 Phase 1: 보안 패치 (v2.0 → v2.2) ✅ 완료
 
-**목표**: P0~P1 취약점 완전 제거
+**목표**: P0~P2 취약점 완전 제거
 
 **작업 항목**:
-1. ✅ Path Traversal 방지 (`validate_output_dir`)
-2. ✅ Command Injection 방지 (`sanitize_prompt`)
-3. ✅ CLI 가용성 체크 (`check_prerequisites`)
-4. ✅ 모델 유효성 검사 (`validate_model`)
-5. ✅ 로그 파일 충돌 방지 (PID 추가)
-6. ✅ .gitignore 자동 생성
+1. ✅ Command Injection 방지 (stdin 기반 프롬프트 전달)
+2. ✅ Path Traversal 방지 (proper containment check)
+3. ✅ DoS 방지 (프롬프트 크기 제한 100KB)
+4. ✅ Static Analysis Pre-Check (shellcheck/ruff/eslint)
+5. ✅ Rollback 메커니즘 (자동/수동 Git 백업)
+6. ✅ 파일 백업 시스템 (timestamp 기반)
+7. ✅ 로그 민감 정보 필터링 (API 키 마스킹)
 
-**예상 시간**: 2-3시간
-**우선순위**: P0 (즉시)
+**원래 추정 시간**: 2-3시간 (비현실적)
+**실제 소요 시간**: ~8-12시간 (Opus 지적대로 4배)
+**우선순위**: P0 (즉시) - 완료됨 (v2.2)
 
-### 7.2 Phase 2: Adversarial Review 추가 (v3.0-beta)
+### 7.2 Phase 2: Adversarial Review 추가 (v3.0-beta) ⏳ 보류
 
 **목표**: 비판적 리뷰 강화
 
 **작업 항목**:
-1. ✅ 보안 체크리스트 작성 (`security-checklist.md`)
-2. ✅ Adversarial 프롬프트 강화
-3. ✅ 최소 개선점 개수 강제 (3개 이상)
-4. ✅ 사용자 확인 단계 추가
+1. ⏳ 보안 체크리스트 템플릿 작성
+2. ⏳ Adversarial 프롬프트 강화 (OWASP Top 10 기준)
+3. ⏳ 최소 개선점 개수 강제 (3개 이상)
+4. ⏳ 사용자 확인 단계 추가
+5. ⏳ 반복 검토 로직 (최대 3회)
 
-**예상 시간**: 3-4시간
-**우선순위**: P1
+**원래 추정 시간**: 3-4시간
+**현실적 추정 시간**: 6-8시간 (Opus 권장)
+**우선순위**: P3 (v3.0에서 모드 축소 시 통합될 가능성)
 
-### 7.3 Phase 3: Independent Review 구현 (v3.0-rc)
+### 7.3 Phase 3: Independent Review 구현 (v3.0-rc) ⏳ 계획
 
-**목표**: 독립적 설계 비교
+**목표**: 독립적 설계 비교 (Confirmation Bias 완전 제거)
 
 **작업 항목**:
 1. ⏳ `--mode independent` 구현
-2. ⏳ 설계 비교 분석 로직
-3. ⏳ 하이브리드 설계 지원
-4. ⏳ 사용자 선택 UI
+2. ⏳ 병렬 설계 생성 (Claude + Gemini 동시)
+3. ⏳ Diff 기반 비교 분석 로직
+4. ⏳ 하이브리드 설계 지원 (장점 통합)
+5. ⏳ 사용자 선택 UI (A/B/Hybrid)
+6. ⏳ 표준 출력 스키마 통합 (GPT 제안)
 
-**예상 시간**: 6-8시간
-**우선순위**: P2
+**원래 추정 시간**: 6-8시간
+**현실적 추정 시간**: 16-24시간 (Opus 권장, 3배 증가)
+**이유**: 병렬 실행, 비교 로직 복잡도, UI 개발
+**우선순위**: P2 (핵심 기능)
 
-### 7.4 Phase 4: Multi-Agent Consensus (v3.0)
+### 7.4 Phase 4: Multi-Agent Consensus (v3.0) ⚠️ 재검토 필요
 
-**목표**: 다중 AI 합의
+**목표**: 다중 AI 합의 (4개 AI: Claude/Gemini/Grok/GPT)
 
 **작업 항목**:
 1. ⏳ `--mode consensus` 구현
-2. ⏳ 합의 알고리즘
-3. ⏳ Grok, GPT 통합
-4. ⏳ 투표 결과 시각화
+2. ⏳ Grok CLI 통합 (가용성 미확인 ⚠️)
+3. ⏳ GPT CLI 통합 (가용성 미확인 ⚠️)
+4. ⏳ 합의 알고리즘 (투표/가중치)
+5. ⏳ 의견 충돌 해결 로직
+6. ⏳ 투표 결과 시각화
+7. ⏳ 타임아웃/재시도 처리 (4배 증가)
 
-**예상 시간**: 8-10시간
-**우선순위**: P3 (선택)
+**원래 추정 시간**: 8-10시간 (비현실적)
+**현실적 추정 시간**: 40+ 시간 (Opus 권장, 4-5배 증가)
+**이유**: CLI 통합 불확실성, 복잡한 합의 로직, 4개 AI 병렬 처리
+**우선순위**: P4 (선택적, Opus는 2개 모드로 축소 권장)
+
+**⚠️ Opus 4.5 권장사항**:
+- 현재 4개 모드 (Standard/Independent/Adversarial/Consensus)는 과도함
+- 2개 모드로 축소 권장: **Quick** (기본 검토) / **Thorough** (독립 설계)
+
+### 7.5 표준 출력 스키마 (GPT 5.1 mini 제안) ⏳ 계획
+
+**목표**: 일관된 AI 응답 형식으로 파싱 용이성 향상 (P3-4 해결)
+
+**배경**:
+- 현재 v2.2는 자유 형식 텍스트 응답 의존
+- 파싱 어려움, 일관성 부족
+- GPT 5.1 mini가 구조화된 출력 필요성 지적
+
+**제안 스키마** (JSON 형식):
+```json
+{
+  "version": "1.0",
+  "timestamp": "2026-01-18T06:30:00Z",
+  "reviewer": "Claude Opus 4.5",
+  "phase": "design",
+  "verdict": "APPROVED_WITH_CHANGES",
+  "security_issues": [
+    {
+      "id": "P0-1",
+      "severity": "P0",
+      "type": "Command Injection",
+      "location": "scripts/cross_check_auto.sh:202",
+      "description": "Prompt passed as command argument",
+      "recommendation": "Use stdin instead",
+      "cwe": "CWE-77"
+    }
+  ],
+  "improvements": [
+    {
+      "priority": "P1",
+      "category": "Performance",
+      "suggestion": "Add static analysis pre-check",
+      "reasoning": "60-80% faster than AI for simple issues"
+    }
+  ],
+  "metrics": {
+    "total_issues": 5,
+    "p0_count": 2,
+    "p1_count": 2,
+    "p2_count": 1,
+    "approval_confidence": 0.7
+  }
+}
+```
+
+**작업 항목**:
+1. ⏳ JSON 스키마 정의 (JSONSchema v7)
+2. ⏳ AI 프롬프트에 스키마 요구사항 추가
+3. ⏳ JSON 파싱 로직 구현
+4. ⏳ 폴백: 자유 형식 파싱 (AI가 JSON 안 따를 경우)
+5. ⏳ 스키마 검증 (jq 또는 Python)
+
+**예상 시간**: 4-6시간
+**우선순위**: P2 (독립 설계 비교 시 필수)
+
+**장점**:
+- 자동화된 결과 집계
+- CI/CD 통합 용이
+- 메트릭 추적 가능
+- 다중 AI 비교 단순화
 
 ---
 
@@ -637,35 +729,56 @@ audit_log "SECURITY_ISSUE" "type=Path_Traversal, severity=P0"
 
 ---
 
-## 9. 비용 분석
+## 9. 비용 분석 (Opus 4.5 피드백 반영)
 
-### 9.1 API 호출 비용
+### 9.1 API 호출 비용 (현실적 추정)
 
-#### 기본 모드 (v2.0 호환)
+**⚠️ Opus 4.5 지적**: 원래 설계의 비용 추정은 3-5배 과소평가됨
+
+#### 기본 모드 (v2.2)
+
+**원래 추정** (비현실적):
 ```
-설계: Claude (1회) + Gemini (1회) = 2 호출
-구현: Claude (1회) + Gemini (1회) = 2 호출
-테스트: Claude (1회) + Gemini (1회) = 2 호출
----
 총: 6 호출 × $0.05 = $0.30
+```
+
+**현실적 추정** (Opus 권장):
+```
+설계: Claude Sonnet (1회, ~5K tokens) = $0.03
+     Gemini 3 Pro (1회, ~3K tokens) = $0.02
+구현: Claude Sonnet (1회, ~10K tokens) = $0.06
+     Gemini 3 Pro (1회, ~5K tokens) = $0.03
+테스트: Claude Sonnet (1회, ~3K tokens) = $0.02
+     Gemini 3 Pro (1회, ~2K tokens) = $0.01
+
+재시도 오버헤드 (+50%): $0.09
+대용량 diff 처리 (+100%): $0.17
+---
+현실적 총 비용: $0.50 - $1.50 per run
 ```
 
 #### Independent 모드
 ```
-설계: Claude (1회) + Gemini (1회) = 2 호출 (설계)
-비교: Claude (1회) = 1 호출
+기본 비용: $0.50
+병렬 설계 (Claude + Gemini 동시): +$0.30
+비교 분석: +$0.10
 ---
-총: 설계당 3 호출 → 전체 9 호출 = $0.45
+현실적 총 비용: $0.90 - $2.00 per run
 ```
 
 #### Consensus 모드
 ```
-설계: Claude (1회) + Gemini (1회) + Grok (1회) = 3 호출
+기본 비용: $0.50
+추가 AI (Grok): +$0.20
+추가 AI (GPT-4): +$0.30
 ---
-총: 전체 9 호출 = $0.45
+현실적 총 비용: $1.00 - $2.50 per run
 ```
 
-**권장**: 기본 모드로 시작, 중요한 프로젝트만 Independent/Consensus
+**월간 비용 예상** (10 커밋/일 기준):
+- 기본 모드: $150 - $450/월
+- Independent: $270 - $600/월
+- Consensus: $300 - $750/월
 
 ---
 
@@ -691,19 +804,23 @@ audit_log "SECURITY_ISSUE" "type=Path_Traversal, severity=P0"
 
 ## 11. 결론
 
-### 11.1 v2.0 vs v3.0 비교
+### 11.1 v2.2 vs v3.0 비교 (Opus 피드백 반영)
 
-| 항목 | v2.0 | v3.0 |
-|------|------|------|
-| **보안** | ⚠️ P0 취약점 2개 | ✅ 완전 패치 |
-| **리뷰 방식** | 단일 (Gemini) | 다중 (Opus/Gemini/Grok/GPT) |
-| **독립성** | ❌ Maker 의존 | ✅ 독립적 설계 가능 |
-| **비용** | $0.30 | $0.30~$0.45 (모드별) |
-| **시간** | 5-10분 | 10-20분 (모드별) |
-| **품질** | 7-9/10 | 9-10/10 (목표) |
+| 항목 | v2.2 (현재) | v3.0 (계획) |
+|------|------------|------------|
+| **보안** | ✅ P0~P2 완전 패치 | ✅ 유지 (추가 강화) |
+| **리뷰 방식** | 순차 (Claude → Gemini) | 병렬/독립 (다중 AI) |
+| **독립성** | ⚠️ Maker 의존 (Confirmation Bias) | ✅ 독립적 설계 가능 |
+| **비용** | $0.50~$1.50/run | $0.90~$2.50/run (모드별) |
+| **실행 시간** | 5-10분 | 10-20분 (모드별) |
+| **구현 시간** | 8-12시간 (완료) | 68-98시간 추가 (Phase 2-5) |
+| **품질** | 7-8/10 (Opus 평가) | 9-10/10 (목표) |
 
-### 11.2 권장 사용법
+### 11.2 권장 사용법 (Opus 단순화 권장 반영)
 
+**⚠️ Opus 4.5 권장**: 4개 모드 → 2개 모드로 축소
+
+#### 현재 계획 (4개 모드)
 | 프로젝트 유형 | 권장 모드 | 이유 |
 |--------------|----------|------|
 | **프로토타입** | Standard | 빠른 검증 |
@@ -711,12 +828,32 @@ audit_log "SECURITY_ISSUE" "type=Path_Traversal, severity=P0"
 | **미션 크리티컬** | Consensus | 최고 품질 |
 | **레거시 개선** | Independent | 다양한 대안 필요 |
 
-### 11.3 다음 단계
+#### Opus 권장안 (2개 모드)
+| 모드 | 설명 | 사용 시점 |
+|------|------|----------|
+| **Quick** | 순차 검토 (v2.2와 유사) | 일반 개발, 빠른 피드백 필요 시 |
+| **Thorough** | 독립 병렬 설계 | 중요 기능, 보안 중요 시, 다양한 대안 필요 시 |
 
-1. **즉시**: Phase 1 구현 (보안 패치)
-2. **1주 내**: Phase 2 구현 (Adversarial Review)
-3. **2주 내**: Phase 3 구현 (Independent Review)
-4. **선택**: Phase 4 구현 (Consensus)
+**결정 필요**: 최종 v3.0에서 어떤 방식 채택할지 검토 필요
+
+### 11.3 다음 단계 (현실적 일정)
+
+**완료됨**:
+1. ✅ Phase 1: 보안 패치 (v2.0 → v2.2) - 8-12시간 소요
+
+**남은 작업**:
+2. ⏳ Phase 2: Adversarial Review - 6-8시간 (선택적)
+3. ⏳ Phase 3: Independent Review - 16-24시간 (핵심)
+4. ⏳ Phase 4: Consensus - 40+ 시간 (재검토 필요)
+5. ⏳ Phase 5: 표준 스키마 - 4-6시간 (GPT 제안)
+
+**총 예상 소요 시간**: 68-98시간 (Phase 2-5 합계)
+**원래 추정**: 19-25시간 (3-4배 과소평가)
+
+**우선순위 기반 권장 일정**:
+- Phase 3 (독립 설계) 우선 구현 → Confirmation Bias 해결
+- Phase 5 (표준 스키마) 통합 → 자동화 향상
+- Phase 2, 4는 Phase 3 검증 후 필요성 재평가
 
 ---
 
@@ -742,9 +879,20 @@ audit_log "SECURITY_ISSUE" "type=Path_Traversal, severity=P0"
 |------|------|-----------|
 | v1.0 | 2026-01-17 | 초기 자동화 (자동 커밋 포함) |
 | v2.0 | 2026-01-17 | 보안 개선 (자동 커밋 제거, mktemp) |
-| v3.0 | 2026-01-17 | 설계 문서 (보안 패치, 다중 리뷰) |
+| v2.1 | 2026-01-18 | P0/P1 보안 패치 (Opus 피드백 반영) |
+| v2.2 | 2026-01-18 | P2 보안 강화 (롤백, 백업, 로그 필터링) |
+| **v3.0 설계** | 2026-01-18 | 다중 AI 독립 리뷰 설계 (Opus + GPT 피드백 통합) |
 
 ---
 
 **작성자**: Claude Sonnet 4.5
-**검토 요청**: Opus 4.5, Gemini 3 Pro, Grok, GPT-4
+**검토자**:
+- ✅ Opus 4.5 (7/10, Conditional Approval, P0-P2 발견)
+- ✅ GPT 5.1 mini (표준 스키마 제안, CI 통합 권장)
+- ⏳ Gemini 3 Pro (검토 예정)
+- ⏳ Grok (검토 예정)
+
+**관련 문서**:
+- `docs/cross-check-auto-v2.1-patch.md` - P0/P1 보안 패치 상세
+- `docs/cross-check-auto-v2.2-patch.md` - P2 보안 강화 상세
+- `docs/cross-check-auto-v3-opus-review.md` - Opus 4.5 검토 결과
