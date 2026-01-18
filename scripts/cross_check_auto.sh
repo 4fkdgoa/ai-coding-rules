@@ -1184,6 +1184,121 @@ $(cat "$request_file")
     return 1
 }
 
+# 함수: 병렬 독립적 설계 생성 (Phase 3: Independent Review)
+independent_design_parallel() {
+    local request_file="$1"
+    local output_dir="$2"
+    local timeout_minutes="${3:-30}"  # 기본 타임아웃: 30분
+
+    log_step "병렬 독립 설계 시작..."
+    log_info "Claude와 Gemini가 동시에 독립적으로 설계합니다"
+    log_info "타임아웃: ${timeout_minutes}분"
+    echo ""
+
+    # 파일 크기 검증
+    if ! validate_file_size "$request_file"; then
+        return 1
+    fi
+
+    mkdir -p "$output_dir"
+    mkdir -p "$LOG_DIR"
+
+    local start_time=$(date +%s)
+    local timeout_seconds=$((timeout_minutes * 60))
+
+    # Claude 독립 설계 백그라운드 실행
+    log_info "Claude 독립 설계 시작..."
+    run_claude_design_independent "$request_file" "$output_dir" &
+    local claude_pid=$!
+    log_info "Claude 프로세스 시작 (PID: $claude_pid)"
+
+    # Gemini 독립 설계 백그라운드 실행
+    log_info "Gemini 독립 설계 시작..."
+    run_gemini_design_independent "$request_file" "$output_dir" &
+    local gemini_pid=$!
+    log_info "Gemini 프로세스 시작 (PID: $gemini_pid)"
+
+    echo ""
+    log_info "두 AI의 설계 완료 대기 중... (이 과정은 몇 분이 소요될 수 있습니다)"
+    echo ""
+
+    # 두 프로세스가 완료될 때까지 대기
+    local claude_exit=0
+    local gemini_exit=0
+    local timeout_exceeded=0
+
+    # Claude 프로세스 대기
+    wait $claude_pid 2>/dev/null
+    claude_exit=$?
+
+    # Gemini 프로세스 대기
+    wait $gemini_pid 2>/dev/null
+    gemini_exit=$?
+
+    # 타임아웃 확인
+    local end_time=$(date +%s)
+    local elapsed=$((end_time - start_time))
+
+    if [ $elapsed -gt $timeout_seconds ]; then
+        log_error "타임아웃 초과: ${elapsed}초 (최대: ${timeout_seconds}초)"
+        timeout_exceeded=1
+    fi
+
+    echo ""
+    log_step "=== 병렬 설계 결과 ==="
+    echo ""
+
+    # 결과 보고
+    if [ $claude_exit -eq 0 ]; then
+        log_success "✓ Claude 독립 설계 완료"
+        if [ -f "$output_dir/design_claude_v1.md" ]; then
+            local claude_size=$(stat -c%s "$output_dir/design_claude_v1.md" 2>/dev/null || stat -f%z "$output_dir/design_claude_v1.md" 2>/dev/null)
+            log_info "  파일: design_claude_v1.md (${claude_size} bytes)"
+        fi
+    else
+        log_error "✗ Claude 독립 설계 실패 (종료 코드: $claude_exit)"
+    fi
+
+    if [ $gemini_exit -eq 0 ]; then
+        log_success "✓ Gemini 독립 설계 완료"
+        if [ -f "$output_dir/design_gemini_v1.md" ]; then
+            local gemini_size=$(stat -c%s "$output_dir/design_gemini_v1.md" 2>/dev/null || stat -f%z "$output_dir/design_gemini_v1.md" 2>/dev/null)
+            log_info "  파일: design_gemini_v1.md (${gemini_size} bytes)"
+        fi
+    else
+        log_error "✗ Gemini 독립 설계 실패 (종료 코드: $gemini_exit)"
+    fi
+
+    echo ""
+    log_info "소요 시간: $((elapsed / 60))분 $((elapsed % 60))초"
+    echo ""
+
+    # 결과 판정
+    if [ $claude_exit -eq 0 ] && [ $gemini_exit -eq 0 ]; then
+        log_success "=========================================="
+        log_success "병렬 독립 설계 완료 - 두 AI 모두 성공!"
+        log_success "=========================================="
+        return 0
+    elif [ $claude_exit -eq 0 ]; then
+        log_warn "=========================================="
+        log_warn "Claude 설계 성공, Gemini 설계 실패"
+        log_warn "Claude 설계만 사용 가능합니다"
+        log_warn "=========================================="
+        return 1
+    elif [ $gemini_exit -eq 0 ]; then
+        log_warn "=========================================="
+        log_warn "Gemini 설계 성공, Claude 설계 실패"
+        log_warn "Gemini 설계만 사용 가능합니다"
+        log_warn "=========================================="
+        return 1
+    else
+        log_error "=========================================="
+        log_error "Claude와 Gemini 설계 모두 실패!"
+        log_error "=========================================="
+        return 1
+    fi
+}
+
 # 함수: 설계 크로스체크 (자동)
 cross_check_design_auto() {
     local request_file="$1"
