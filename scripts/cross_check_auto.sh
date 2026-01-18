@@ -1299,6 +1299,416 @@ independent_design_parallel() {
     fi
 }
 
+# 함수: JSON에서 Markdown 리포트 생성 (Phase 3: 비교 분석)
+generate_comparison_markdown() {
+    local json_file="$1"
+    local md_file="$2"
+
+    if [ ! -f "$json_file" ]; then
+        log_error "JSON 파일이 존재하지 않습니다: $json_file"
+        return 1
+    fi
+
+    # jq 설치 확인
+    if ! command -v jq &> /dev/null; then
+        log_error "jq가 설치되지 않았습니다. Markdown 리포트 생성을 건너뜁니다."
+        return 1
+    fi
+
+    # JSON 파싱하여 Markdown 생성
+    cat > "$md_file" <<'EOF'
+# 설계 비교 분석 리포트
+
+**생성 시각**: $(date '+%Y-%m-%d %H:%M:%S')
+**분석자**: Claude Opus 4.5
+
+---
+
+## 1. 공통점 (Commonalities)
+
+두 설계가 일치하는 핵심 요소:
+
+EOF
+
+    # 공통점 추가
+    jq -r '.commonalities[]? | "- " + .' "$json_file" >> "$md_file" 2>/dev/null || echo "- (데이터 없음)" >> "$md_file"
+
+    cat >> "$md_file" <<'EOF'
+
+---
+
+## 2. 차이점 (Differences)
+
+### 2.1 Claude만 제안한 요소
+
+EOF
+
+    jq -r '.differences.claude_only[]? | "- " + .' "$json_file" >> "$md_file" 2>/dev/null || echo "- (데이터 없음)" >> "$md_file"
+
+    cat >> "$md_file" <<'EOF'
+
+### 2.2 Gemini만 제안한 요소
+
+EOF
+
+    jq -r '.differences.gemini_only[]? | "- " + .' "$json_file" >> "$md_file" 2>/dev/null || echo "- (데이터 없음)" >> "$md_file"
+
+    cat >> "$md_file" <<'EOF'
+
+### 2.3 접근 방식 차이
+
+EOF
+
+    jq -r '.differences.approach_diff[]? | "- " + .' "$json_file" >> "$md_file" 2>/dev/null || echo "- (데이터 없음)" >> "$md_file"
+
+    cat >> "$md_file" <<'EOF'
+
+---
+
+## 3. 장단점 분석 (Pros & Cons)
+
+### 3.1 Claude 설계
+
+#### 강점 (Pros)
+
+EOF
+
+    jq -r '.analysis.claude_pros[]? | "- " + .' "$json_file" >> "$md_file" 2>/dev/null || echo "- (데이터 없음)" >> "$md_file"
+
+    cat >> "$md_file" <<'EOF'
+
+#### 약점 (Cons)
+
+EOF
+
+    jq -r '.analysis.claude_cons[]? | "- " + .' "$json_file" >> "$md_file" 2>/dev/null || echo "- (데이터 없음)" >> "$md_file"
+
+    cat >> "$md_file" <<'EOF'
+
+### 3.2 Gemini 설계
+
+#### 강점 (Pros)
+
+EOF
+
+    jq -r '.analysis.gemini_pros[]? | "- " + .' "$json_file" >> "$md_file" 2>/dev/null || echo "- (데이터 없음)" >> "$md_file"
+
+    cat >> "$md_file" <<'EOF'
+
+#### 약점 (Cons)
+
+EOF
+
+    jq -r '.analysis.gemini_cons[]? | "- " + .' "$json_file" >> "$md_file" 2>/dev/null || echo "- (데이터 없음)" >> "$md_file"
+
+    cat >> "$md_file" <<'EOF'
+
+---
+
+## 4. 보안 비교 (Security Comparison)
+
+### 4.1 Claude 설계 보안 고려사항
+
+EOF
+
+    jq -r '.security.claude_security[]? | "- " + .' "$json_file" >> "$md_file" 2>/dev/null || echo "- (데이터 없음)" >> "$md_file"
+
+    cat >> "$md_file" <<'EOF'
+
+### 4.2 Gemini 설계 보안 고려사항
+
+EOF
+
+    jq -r '.security.gemini_security[]? | "- " + .' "$json_file" >> "$md_file" 2>/dev/null || echo "- (데이터 없음)" >> "$md_file"
+
+    cat >> "$md_file" <<'EOF'
+
+### 4.3 보안 강도 평가
+
+EOF
+
+    jq -r '.security.comparison? // "(데이터 없음)"' "$json_file" >> "$md_file" 2>/dev/null
+
+    cat >> "$md_file" <<'EOF'
+
+---
+
+## 5. 추천사항 (Recommendation)
+
+### 5.1 권장 설계
+
+EOF
+
+    local preferred=$(jq -r '.recommendation.preferred? // "unknown"' "$json_file" 2>/dev/null)
+    case "$preferred" in
+        claude)
+            echo "**✓ Claude 설계 추천**" >> "$md_file"
+            ;;
+        gemini)
+            echo "**✓ Gemini 설계 추천**" >> "$md_file"
+            ;;
+        hybrid)
+            echo "**✓ 하이브리드 (Claude + Gemini) 추천**" >> "$md_file"
+            ;;
+        *)
+            echo "**? 판정 불가**" >> "$md_file"
+            ;;
+    esac
+
+    cat >> "$md_file" <<'EOF'
+
+### 5.2 추천 이유
+
+EOF
+
+    jq -r '.recommendation.reasoning? // "(데이터 없음)"' "$json_file" >> "$md_file" 2>/dev/null
+
+    cat >> "$md_file" <<'EOF'
+
+### 5.3 하이브리드 전략 (해당 시)
+
+EOF
+
+    local hybrid_strategy=$(jq -r '.recommendation.hybrid_strategy? // ""' "$json_file" 2>/dev/null)
+    if [ -n "$hybrid_strategy" ] && [ "$hybrid_strategy" != "null" ]; then
+        echo "$hybrid_strategy" >> "$md_file"
+    else
+        echo "(해당 없음)" >> "$md_file"
+    fi
+
+    cat >> "$md_file" <<EOF
+
+---
+
+## 요약 테이블
+
+| 항목 | Claude 설계 | Gemini 설계 |
+|------|------------|-------------|
+| 강점 | $(jq -r '.analysis.claude_pros? | length' "$json_file" 2>/dev/null || echo "?")개 | $(jq -r '.analysis.gemini_pros? | length' "$json_file" 2>/dev/null || echo "?")개 |
+| 약점 | $(jq -r '.analysis.claude_cons? | length' "$json_file" 2>/dev/null || echo "?")개 | $(jq -r '.analysis.gemini_cons? | length' "$json_file" 2>/dev/null || echo "?")개 |
+| 보안 고려사항 | $(jq -r '.security.claude_security? | length' "$json_file" 2>/dev/null || echo "?")개 | $(jq -r '.security.gemini_security? | length' "$json_file" 2>/dev/null || echo "?")개 |
+| 독창적 요소 | $(jq -r '.differences.claude_only? | length' "$json_file" 2>/dev/null || echo "?")개 | $(jq -r '.differences.gemini_only? | length' "$json_file" 2>/dev/null || echo "?")개 |
+
+---
+
+*이 리포트는 Claude Opus 4.5에 의해 자동 생성되었습니다.*
+*원본 JSON: $(basename "$json_file")*
+EOF
+
+    log_success "Markdown 리포트 생성 완료: $md_file"
+    return 0
+}
+
+# 함수: 설계 비교 분석 (Phase 3: Independent Review)
+compare_designs() {
+    local output_dir="$1"
+
+    log_step "=== 설계 비교 분석 시작 ==="
+    log_info "출력 디렉토리: $output_dir"
+
+    local claude_design="$output_dir/design_claude_v1.md"
+    local gemini_design="$output_dir/design_gemini_v1.md"
+    local comparison_json="$output_dir/comparison_result.json"
+    local comparison_md="$output_dir/design_comparison_report.md"
+
+    mkdir -p "$LOG_DIR"
+    local log_file="$LOG_DIR/comparison.log"
+
+    # 입력 파일 존재 확인
+    if [ ! -f "$claude_design" ]; then
+        log_error "Claude 설계 파일이 존재하지 않습니다: $claude_design"
+        return 1
+    fi
+
+    if [ ! -f "$gemini_design" ]; then
+        log_error "Gemini 설계 파일이 존재하지 않습니다: $gemini_design"
+        return 1
+    fi
+
+    log_info "Claude 설계: $claude_design"
+    log_info "Gemini 설계: $gemini_design"
+    echo ""
+
+    # 비교 분석 프롬프트 작성
+    local comparison_prompt="다음 두 AI가 같은 요청서를 보고 독립적으로 작성한 설계서를 비교 분석해주세요.
+
+[Claude 설계]
+$(cat "$claude_design")
+
+[Gemini 설계]
+$(cat "$gemini_design")
+
+분석 요청사항:
+1. 공통점: 두 설계가 일치하는 핵심 요소
+2. 차이점:
+   - Claude만 제안한 요소
+   - Gemini만 제안한 요소
+   - 접근 방식 차이
+3. 장단점 분석:
+   - Claude 설계의 강점/약점
+   - Gemini 설계의 강점/약점
+   - Trade-off 분석
+4. 보안 비교:
+   - 각 설계의 보안 고려사항
+   - 보안 강도 평가
+5. 추천:
+   - 더 적합한 설계는?
+   - 하이브리드 가능성?
+   - 최종 권장사항
+
+**응답 형식**: JSON만 출력해주세요. 다른 텍스트는 포함하지 마세요.
+
+\`\`\`json
+{
+  \"commonalities\": [
+    \"공통점 1\",
+    \"공통점 2\"
+  ],
+  \"differences\": {
+    \"claude_only\": [
+      \"Claude만 제안한 요소 1\",
+      \"Claude만 제안한 요소 2\"
+    ],
+    \"gemini_only\": [
+      \"Gemini만 제안한 요소 1\",
+      \"Gemini만 제안한 요소 2\"
+    ],
+    \"approach_diff\": [
+      \"접근 방식 차이 1\",
+      \"접근 방식 차이 2\"
+    ]
+  },
+  \"analysis\": {
+    \"claude_pros\": [
+      \"Claude 강점 1\",
+      \"Claude 강점 2\"
+    ],
+    \"claude_cons\": [
+      \"Claude 약점 1\",
+      \"Claude 약점 2\"
+    ],
+    \"gemini_pros\": [
+      \"Gemini 강점 1\",
+      \"Gemini 강점 2\"
+    ],
+    \"gemini_cons\": [
+      \"Gemini 약점 1\",
+      \"Gemini 약점 2\"
+    ]
+  },
+  \"security\": {
+    \"claude_security\": [
+      \"Claude 보안 고려사항 1\",
+      \"Claude 보안 고려사항 2\"
+    ],
+    \"gemini_security\": [
+      \"Gemini 보안 고려사항 1\",
+      \"Gemini 보안 고려사항 2\"
+    ],
+    \"comparison\": \"보안 강도 비교 및 평가\"
+  },
+  \"recommendation\": {
+    \"preferred\": \"claude|gemini|hybrid\",
+    \"reasoning\": \"추천 이유 상세 설명\",
+    \"hybrid_strategy\": \"하이브리드 전략 (해당되는 경우)\"
+  }
+}
+\`\`\`
+
+JSON 형식으로만 응답해주세요."
+
+    # 프롬프트 크기 제한 검증 (설계 비교는 더 큰 프롬프트 필요)
+    local MAX_PROMPT_SIZE=524288  # 512KB
+    if [ ${#comparison_prompt} -gt $MAX_PROMPT_SIZE ]; then
+        log_error "프롬프트 크기 초과: ${#comparison_prompt} bytes (최대 ${MAX_PROMPT_SIZE} bytes)"
+        return 1
+    fi
+
+    # 안전한 임시 파일 생성
+    local temp_response=$(mktemp /tmp/claude_comparison.XXXXXX)
+    local temp_prompt=$(mktemp /tmp/claude_comparison_prompt.XXXXXX)
+    TEMP_FILES+=("$temp_response" "$temp_prompt")
+
+    # 프롬프트를 임시 파일에 작성
+    printf '%s' "$comparison_prompt" > "$temp_prompt"
+
+    # Claude Opus 4.5 실행 (재시도 로직 포함)
+    local retry=0
+    local opus_model="claude-opus-4-5"
+
+    while [ $retry -lt $MAX_RETRIES ]; do
+        log_ai "Claude Opus 4.5 비교 분석 실행 중... (시도 $((retry+1))/$MAX_RETRIES)"
+
+        # Claude 실행 (stdin으로 전달)
+        if claude -m "$opus_model" < "$temp_prompt" > "$temp_response" 2>&1; then
+            # 성공 시 로그 파일에 백업
+            cp "$temp_response" "$log_file"
+
+            # 민감 정보 필터링
+            sanitize_log "$log_file"
+
+            log_success "✓ Claude Opus 비교 분석 완료"
+            break
+        fi
+
+        retry=$((retry + 1))
+        if [ $retry -lt $MAX_RETRIES ]; then
+            log_warn "Claude 실행 실패 (시도 $retry/$MAX_RETRIES). ${RETRY_DELAY}초 후 재시도..."
+            sleep $RETRY_DELAY
+        fi
+    done
+
+    if [ $retry -ge $MAX_RETRIES ]; then
+        log_error "Claude Opus 비교 분석 최종 실패!"
+        cat "$temp_response"
+        return 1
+    fi
+
+    # JSON 추출 및 저장
+    log_step "JSON 응답 파싱 중..."
+
+    local json_content=$(parse_ai_response "$temp_response")
+    if [ -z "$json_content" ] || [ "$json_content" = "null" ]; then
+        log_error "JSON 파싱 실패"
+        log_error "원본 응답:"
+        cat "$temp_response"
+        return 1
+    fi
+
+    # JSON 유효성 검증
+    if ! echo "$json_content" | jq empty 2>/dev/null; then
+        log_error "JSON 유효성 검증 실패"
+        log_error "파싱된 JSON:"
+        echo "$json_content"
+        return 1
+    fi
+
+    # JSON 파일 저장
+    echo "$json_content" | jq '.' > "$comparison_json" 2>/dev/null
+    log_success "비교 결과 JSON 저장: $comparison_json"
+
+    # Markdown 리포트 생성
+    log_step "Markdown 리포트 생성 중..."
+
+    if ! generate_comparison_markdown "$comparison_json" "$comparison_md"; then
+        log_error "Markdown 리포트 생성 실패"
+        return 1
+    fi
+
+    log_success "비교 리포트 저장: $comparison_md"
+    echo ""
+
+    log_success "=========================================="
+    log_success "설계 비교 분석 완료!"
+    log_success "=========================================="
+    log_info "JSON 결과: $comparison_json"
+    log_info "Markdown 리포트: $comparison_md"
+    log_info "상세 로그: $log_file"
+    echo ""
+
+    return 0
+}
+
 # 함수: 설계 크로스체크 (자동)
 cross_check_design_auto() {
     local request_file="$1"
