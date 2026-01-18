@@ -49,6 +49,7 @@ CLAUDE_MODEL_ID="claude-sonnet-4-5"  # 명시적인 전체 모델 ID
 GEMINI_MODEL="gemini-3-pro-preview"
 MAX_RETRIES=3  # API 재시도 횟수
 RETRY_DELAY=5  # 재시도 대기 시간 (초)
+REVIEW_MODE="standard"  # 리뷰 모드 (standard | independent)
 
 # 임시 파일 목록 (정리용)
 TEMP_FILES=()
@@ -287,10 +288,11 @@ usage() {
     echo "  rollback   - 수동 롤백 (이전 상태로 복구)"
     echo ""
     echo "옵션:"
-    echo "  --max-rounds N       : 최대 크로스체크 횟수 (기본: 3)"
-    echo "  --no-auto-rollback   : 자동 롤백 비활성화"
-    echo "  --no-backup          : 백업 생성 비활성화"
-    echo "  --auto-commit        : 자동 커밋 활성화 (기본: 수동)"
+    echo "  --max-rounds N           : 최대 크로스체크 횟수 (기본: 3)"
+    echo "  --no-auto-rollback       : 자동 롤백 비활성화"
+    echo "  --no-backup              : 백업 생성 비활성화"
+    echo "  --auto-commit            : 자동 커밋 활성화 (기본: 수동)"
+    echo "  --mode independent       : 독립적 설계 비교 모드 (Claude || Gemini)"
     echo ""
     echo "주의:"
     echo "  - 기본은 수동 커밋 (사용자가 직접 검토 후 커밋)"
@@ -1447,6 +1449,15 @@ main() {
                 AUTO_COMMIT_ENABLED=true
                 shift
                 ;;
+            --mode)
+                REVIEW_MODE="$2"
+                # 검증: independent 또는 standard만 허용
+                if [ "$REVIEW_MODE" != "independent" ] && [ "$REVIEW_MODE" != "standard" ]; then
+                    log_error "Invalid review mode: $REVIEW_MODE (allowed: independent, standard)"
+                    usage
+                fi
+                shift 2
+                ;;
             *)
                 if [ -z "$mode" ]; then
                     mode="$1"
@@ -1507,12 +1518,19 @@ main() {
     local result=0
     case "$mode" in
         design)
-            if cross_check_design_auto "$request_file" "$output_dir"; then
-                auto_commit "design" "$output_dir"
-            else
+            if [ "$REVIEW_MODE" = "independent" ]; then
+                log_info "Independent review mode - 구현 예정"
+                # TODO: implement independent workflow
+                log_warn "독립적 설계 비교 모드는 아직 구현되지 않았습니다."
                 result=1
-                # P2-1: 자동 롤백
-                auto_rollback
+            else
+                if cross_check_design_auto "$request_file" "$output_dir"; then
+                    auto_commit "design" "$output_dir"
+                else
+                    result=1
+                    # P2-1: 자동 롤백
+                    auto_rollback
+                fi
             fi
             ;;
         implement|impl)
