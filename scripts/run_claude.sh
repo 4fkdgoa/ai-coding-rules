@@ -52,14 +52,14 @@ cat << EOF | tee "$LOG_FILE"
 실행 시각: $(date "+%Y-%m-%d %H:%M:%S")
 작업명: $TASK_NAME
 모델: $CLAUDE_MODEL
-실행 명령어: claude -m $CLAUDE_MODEL "$QUESTION"
+실행 명령어: claude --model $CLAUDE_MODEL -p "$QUESTION"
 질문:
 $QUESTION
 === 응답 ===
 EOF
 
 # Claude 실행 (tee로 콘솔 + 파일 동시 출력)
-claude -m "$CLAUDE_MODEL" "$QUESTION" 2>&1 | tee -a "$LOG_FILE"
+claude --model "$CLAUDE_MODEL" -p "$QUESTION" 2>&1 | tee -a "$LOG_FILE"
 
 # 종료 시각
 echo "" | tee -a "$LOG_FILE"
