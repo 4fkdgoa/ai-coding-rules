@@ -525,7 +525,138 @@ run_gemini_auto() {
     return 1
 }
 
-# 함수: 결과 파일에서 승인/반려 판정 (개선 버전)
+# 함수: JSON 응답 파싱 (jq 사용)
+parse_ai_response() {
+    local response_file="$1"
+    local field="$2"  # 추출할 필드 (예: .verdict, .metrics.total_issues)
+
+    if [ ! -f "$response_file" ]; then
+        log_error "응답 파일이 존재하지 않습니다: $response_file"
+        return 1
+    fi
+
+    # jq 설치 확인
+    if ! command -v jq &> /dev/null; then
+        log_warn "jq가 설치되지 않았습니다. JSON 파싱을 건너뜁니다."
+        return 1
+    fi
+
+    # JSON 추출 시도 (마크다운 코드 블록 내부 포함)
+    local json_content=""
+
+    # 1. 전체 파일이 JSON인지 확인
+    if jq empty "$response_file" 2>/dev/null; then
+        json_content=$(cat "$response_file")
+    else
+        # 2. 마크다운 코드 블록(```json ... ```) 내부에서 JSON 추출
+        json_content=$(sed -n '/```json/,/```/p' "$response_file" | sed '1d;$d' 2>/dev/null)
+
+        # 3. 일반 코드 블록(``` ... ```) 내부에서 JSON 추출
+        if [ -z "$json_content" ]; then
+            json_content=$(sed -n '/```/,/```/p' "$response_file" | sed '1d;$d' 2>/dev/null)
+        fi
+    fi
+
+    if [ -z "$json_content" ]; then
+        log_warn "JSON 콘텐츠를 찾을 수 없습니다: $response_file"
+        return 1
+    fi
+
+    # 필드 추출
+    if [ -n "$field" ]; then
+        echo "$json_content" | jq -r "$field" 2>/dev/null
+    else
+        echo "$json_content"
+    fi
+}
+
+# 함수: JSON 스키마 검증
+validate_schema() {
+    local response_file="$1"
+    local schema_file="${SCRIPT_DIR}/../schemas/ai-review-response.schema.json"
+
+    if [ ! -f "$response_file" ]; then
+        log_error "응답 파일이 존재하지 않습니다: $response_file"
+        return 1
+    fi
+
+    if [ ! -f "$schema_file" ]; then
+        log_warn "스키마 파일이 존재하지 않습니다: $schema_file (검증 건너뜀)"
+        return 0  # 스키마 없어도 계속 진행
+    fi
+
+    # jq로 기본 검증 (필수 필드만 확인)
+    if ! command -v jq &> /dev/null; then
+        log_warn "jq가 설치되지 않았습니다. 스키마 검증을 건너뜁니다."
+        return 0
+    fi
+
+    # JSON 추출
+    local json_content=$(parse_ai_response "$response_file")
+    if [ -z "$json_content" ]; then
+        return 1
+    fi
+
+    # 필수 필드 존재 확인
+    local required_fields=("version" "timestamp" "reviewer" "phase" "verdict" "security_issues" "improvements" "metrics")
+    local missing_fields=()
+
+    for field in "${required_fields[@]}"; do
+        if ! echo "$json_content" | jq -e ".$field" &>/dev/null; then
+            missing_fields+=("$field")
+        fi
+    done
+
+    if [ ${#missing_fields[@]} -gt 0 ]; then
+        log_error "필수 필드가 누락되었습니다: ${missing_fields[*]}"
+        return 1
+    fi
+
+    log_success "스키마 검증 통과"
+    return 0
+}
+
+# 함수: JSON에서 승인/반려 판정 추출
+check_approval_json() {
+    local review_file="$1"
+
+    # JSON에서 verdict 필드 추출
+    local verdict=$(parse_ai_response "$review_file" ".verdict" 2>/dev/null)
+
+    if [ -z "$verdict" ] || [ "$verdict" = "null" ]; then
+        return 1  # JSON 파싱 실패
+    fi
+
+    log_info "JSON 판정: $verdict"
+
+    case "$verdict" in
+        APPROVED)
+            return 0
+            ;;
+        APPROVED_WITH_CHANGES)
+            # 조건부 승인: P0/P1 이슈가 없으면 승인
+            local p0_count=$(parse_ai_response "$review_file" ".metrics.p0_count" 2>/dev/null)
+            local p1_count=$(parse_ai_response "$review_file" ".metrics.p1_count" 2>/dev/null)
+
+            if [ "$p0_count" = "0" ] && [ "$p1_count" = "0" ]; then
+                log_info "조건부 승인: P0/P1 이슈 없음 → 승인"
+                return 0
+            else
+                log_info "조건부 승인: P0($p0_count) 또는 P1($p1_count) 이슈 존재 → 수정 필요"
+                return 1
+            fi
+            ;;
+        REJECTED)
+            return 1
+            ;;
+        *)
+            log_warn "알 수 없는 verdict 값: $verdict"
+            return 1
+            ;;
+    esac
+}
+
+# 함수: 결과 파일에서 승인/반려 판정 (JSON + 텍스트 폴백)
 check_approval() {
     local review_file="$1"
 
@@ -533,6 +664,17 @@ check_approval() {
         log_warn "리뷰 파일이 존재하지 않습니다: $review_file"
         return 1
     fi
+
+    # 1. JSON 형식 파싱 시도
+    if check_approval_json "$review_file"; then
+        return 0
+    elif [ $? -eq 0 ]; then
+        # check_approval_json이 명시적으로 0 반환 (승인)
+        return 0
+    fi
+
+    # 2. JSON 파싱 실패 → 텍스트 폴백
+    log_info "JSON 파싱 실패, 텍스트 형식으로 폴백"
 
     # 파일의 마지막 20줄에서만 판정 키워드 검색 (결론 부분)
     local conclusion=$(tail -20 "$review_file")
@@ -812,9 +954,55 @@ $(cat "$request_file")
 4. 잠재적 문제점
 5. 보안 고려사항
 
-검토 결과를 작성하고, 마지막 줄에 반드시 다음 중 하나를 명시해줘:
-- [승인] : 설계가 적합함
-- [수정 필요] : 개선이 필요함 (구체적인 수정 사항 명시)"
+**중요: 응답을 반드시 JSON 형식으로 작성해줘. 다음 스키마를 따라야 해:**
+
+\`\`\`json
+{
+  \"version\": \"1.0\",
+  \"timestamp\": \"$(date -u +"%Y-%m-%dT%H:%M:%SZ")\",
+  \"reviewer\": \"Gemini 3 Pro Preview\",
+  \"phase\": \"design\",
+  \"verdict\": \"APPROVED | APPROVED_WITH_CHANGES | REJECTED\",
+  \"security_issues\": [
+    {
+      \"id\": \"P0-1\",
+      \"severity\": \"P0\",
+      \"type\": \"Security Issue Type\",
+      \"location\": \"file:line\",
+      \"description\": \"상세 설명\",
+      \"recommendation\": \"수정 방법\",
+      \"cwe\": \"CWE-XXX\"
+    }
+  ],
+  \"improvements\": [
+    {
+      \"priority\": \"P1\",
+      \"category\": \"Performance | Maintainability | Architecture | etc\",
+      \"suggestion\": \"개선 제안\",
+      \"reasoning\": \"이유\"
+    }
+  ],
+  \"metrics\": {
+    \"total_issues\": 0,
+    \"p0_count\": 0,
+    \"p1_count\": 0,
+    \"p2_count\": 0,
+    \"p3_count\": 0,
+    \"total_improvements\": 0,
+    \"approval_confidence\": 0.95
+  },
+  \"summary\": \"리뷰 요약\"
+}
+\`\`\`
+
+**판정 기준:**
+- APPROVED: 보안 이슈 없음, 설계 우수
+- APPROVED_WITH_CHANGES: P2/P3 이슈만 있음, 구현 가능
+- REJECTED: P0/P1 이슈 존재, 설계 재작성 필요
+
+**응답 형식:** 위 JSON을 마크다운 코드 블록으로 감싸서 출력해줘.
+
+폴백: JSON 생성이 어려우면 텍스트로 작성하되, 마지막 줄에 [승인] 또는 [수정 필요]를 명시해줘."
 
         if ! run_gemini_auto "$review_prompt" "$review_file" "design_review_r${round}"; then
             log_error "Gemini 실행 실패 (Round $round)"
@@ -947,9 +1135,56 @@ $(cat "$request_file")
 4. 성능 이슈
 5. 테스트 커버리지
 
-검토 결과를 작성하고, 마지막 줄에 반드시 다음 중 하나를 명시해줘:
-- [승인] : 구현이 적합함
-- [수정 필요] : 개선이 필요함 (구체적인 수정 사항 명시)"
+**중요: 응답을 반드시 JSON 형식으로 작성해줘. 다음 스키마를 따라야 해:**
+
+\`\`\`json
+{
+  \"version\": \"1.0\",
+  \"timestamp\": \"$(date -u +"%Y-%m-%dT%H:%M:%SZ")\",
+  \"reviewer\": \"Gemini 3 Pro Preview\",
+  \"phase\": \"implement\",
+  \"verdict\": \"APPROVED | APPROVED_WITH_CHANGES | REJECTED\",
+  \"security_issues\": [
+    {
+      \"id\": \"P0-1\",
+      \"severity\": \"P0 | P1 | P2 | P3\",
+      \"type\": \"Command Injection | SQL Injection | XSS | etc\",
+      \"location\": \"file.sh:202\",
+      \"description\": \"상세 설명\",
+      \"recommendation\": \"수정 방법\",
+      \"cwe\": \"CWE-XXX\"
+    }
+  ],
+  \"improvements\": [
+    {
+      \"priority\": \"P1 | P2 | P3\",
+      \"category\": \"Performance | Maintainability | Readability | etc\",
+      \"suggestion\": \"개선 제안\",
+      \"reasoning\": \"이유\",
+      \"location\": \"file:line\"
+    }
+  ],
+  \"metrics\": {
+    \"total_issues\": 0,
+    \"p0_count\": 0,
+    \"p1_count\": 0,
+    \"p2_count\": 0,
+    \"p3_count\": 0,
+    \"total_improvements\": 0,
+    \"approval_confidence\": 0.85
+  },
+  \"summary\": \"코드 리뷰 요약\"
+}
+\`\`\`
+
+**판정 기준:**
+- APPROVED: 보안 이슈 없음, 코드 품질 우수
+- APPROVED_WITH_CHANGES: P2/P3 이슈만 있음, 머지 가능
+- REJECTED: P0/P1 이슈 존재, 수정 필수
+
+**응답 형식:** 위 JSON을 마크다운 코드 블록으로 감싸서 출력해줘.
+
+폴백: JSON 생성이 어려우면 텍스트로 작성하되, 마지막 줄에 [승인] 또는 [수정 필요]를 명시해줘."
 
         if ! run_gemini_auto "$review_prompt" "$review_file" "impl_review_r${round}"; then
             log_error "Gemini 실행 실패 (Round $round)"
@@ -1073,9 +1308,54 @@ $(cat "$request_file")
 4. Mock/Stub 적절성
 5. 실패한 테스트가 있다면 원인 분석
 
-검토 결과를 작성하고, 마지막 줄에 반드시 다음 중 하나를 명시해줘:
-- [승인] : 테스트가 적합함
-- [수정 필요] : 개선이 필요함 (구체적인 수정 사항 명시)"
+**중요: 응답을 반드시 JSON 형식으로 작성해줘. 다음 스키마를 따라야 해:**
+
+\`\`\`json
+{
+  \"version\": \"1.0\",
+  \"timestamp\": \"$(date -u +"%Y-%m-%dT%H:%M:%SZ")\",
+  \"reviewer\": \"Gemini 3 Pro Preview\",
+  \"phase\": \"test\",
+  \"verdict\": \"APPROVED | APPROVED_WITH_CHANGES | REJECTED\",
+  \"security_issues\": [
+    {
+      \"id\": \"P0-1\",
+      \"severity\": \"P0 | P1 | P2 | P3\",
+      \"type\": \"Test Coverage Gap | Test Logic Error | etc\",
+      \"location\": \"test_file.py:45\",
+      \"description\": \"상세 설명\",
+      \"recommendation\": \"수정 방법\"
+    }
+  ],
+  \"improvements\": [
+    {
+      \"priority\": \"P1 | P2 | P3\",
+      \"category\": \"Testing | Readability | Maintainability | etc\",
+      \"suggestion\": \"개선 제안\",
+      \"reasoning\": \"이유\"
+    }
+  ],
+  \"metrics\": {
+    \"total_issues\": 0,
+    \"p0_count\": 0,
+    \"p1_count\": 0,
+    \"p2_count\": 0,
+    \"p3_count\": 0,
+    \"total_improvements\": 0,
+    \"approval_confidence\": 0.90
+  },
+  \"summary\": \"테스트 리뷰 요약\"
+}
+\`\`\`
+
+**판정 기준:**
+- APPROVED: 테스트 커버리지 충분, 모든 테스트 통과
+- APPROVED_WITH_CHANGES: 테스트 통과하나 커버리지 개선 권장
+- REJECTED: 테스트 실패 또는 커버리지 불충분
+
+**응답 형식:** 위 JSON을 마크다운 코드 블록으로 감싸서 출력해줘.
+
+폴백: JSON 생성이 어려우면 텍스트로 작성하되, 마지막 줄에 [승인] 또는 [수정 필요]를 명시해줘."
 
         if ! run_gemini_auto "$review_prompt" "$review_file" "test_review_r${round}"; then
             log_error "Gemini 실행 실패 (Round $round)"

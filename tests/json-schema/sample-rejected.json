@@ -1,0 +1,58 @@
+{
+  "version": "1.0",
+  "timestamp": "2026-01-18T06:40:00Z",
+  "reviewer": "Gemini 3 Pro Preview",
+  "phase": "implement",
+  "verdict": "REJECTED",
+  "security_issues": [
+    {
+      "id": "P0-1",
+      "severity": "P0",
+      "type": "Command Injection",
+      "location": "scripts/deploy.sh:45",
+      "description": "User input is passed directly to shell command without sanitization",
+      "recommendation": "Use parameterized commands or whitelist allowed values",
+      "cwe": "CWE-77",
+      "cvss_score": 9.8
+    },
+    {
+      "id": "P1-1",
+      "severity": "P1",
+      "type": "SQL Injection",
+      "location": "src/database.py:102",
+      "description": "Raw SQL query with string concatenation using user input",
+      "recommendation": "Use parameterized queries or ORM methods",
+      "cwe": "CWE-89",
+      "cvss_score": 8.6
+    },
+    {
+      "id": "P2-1",
+      "severity": "P2",
+      "type": "Hardcoded Secrets",
+      "location": "config/settings.py:12",
+      "description": "API key is hardcoded in source code",
+      "recommendation": "Move secrets to environment variables or secret management system",
+      "cwe": "CWE-798"
+    }
+  ],
+  "improvements": [
+    {
+      "priority": "P1",
+      "category": "Error Handling",
+      "suggestion": "Add try-catch blocks for database operations",
+      "reasoning": "Prevents application crashes and improves error reporting",
+      "location": "src/database.py:95-150",
+      "estimated_effort": "Medium"
+    }
+  ],
+  "metrics": {
+    "total_issues": 3,
+    "p0_count": 1,
+    "p1_count": 1,
+    "p2_count": 1,
+    "p3_count": 0,
+    "total_improvements": 1,
+    "approval_confidence": 0.15
+  },
+  "summary": "CRITICAL: Multiple high-severity security vulnerabilities found. Implementation must be revised before proceeding."
+}
