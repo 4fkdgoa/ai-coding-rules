@@ -78,6 +78,7 @@ BACKUP_COMMIT=""
 AUTO_ROLLBACK_ENABLED=true
 BACKUP_ENABLED=true
 BACKUP_DIR=""
+AUTO_COMMIT_ENABLED=false  # 기본은 수동 커밋 (가이드만 제공)
 
 # 함수: 백업 커밋 생성 (P2-1: Rollback 메커니즘)
 create_backup_commit() {
@@ -289,9 +290,11 @@ usage() {
     echo "  --max-rounds N       : 최대 크로스체크 횟수 (기본: 3)"
     echo "  --no-auto-rollback   : 자동 롤백 비활성화"
     echo "  --no-backup          : 백업 생성 비활성화"
+    echo "  --auto-commit        : 자동 커밋 활성화 (기본: 수동)"
     echo ""
     echo "주의:"
-    echo "  - 자동 커밋하지 않음 (사용자가 직접 검토 후 커밋)"
+    echo "  - 기본은 수동 커밋 (사용자가 직접 검토 후 커밋)"
+    echo "  - --auto-commit 사용 시: 민감 파일 감지되면 자동 중단"
     echo "  - 무한루프 방지: 최대 ${MAX_ROUNDS}회 교차검증 후 중단"
     echo "  - 에러 발생 시 자동 롤백 (비활성화 가능)"
     exit 1
@@ -555,6 +558,74 @@ check_approval() {
 # 함수: 변경사항 해시 계산 (무한루프 방지)
 get_changes_hash() {
     git diff HEAD 2>/dev/null | md5sum 2>/dev/null | awk '{print $1}' || echo "no_git"
+}
+
+# 함수: 자동 커밋 (기본은 수동, --auto-commit 시에만 자동)
+auto_commit() {
+    local phase="$1"  # design, implement, test, full
+    local output_dir="$2"
+
+    # 자동 커밋 비활성화 시 가이드만 제공
+    if [ "$AUTO_COMMIT_ENABLED" != "true" ]; then
+        show_commit_guide "$phase" "$output_dir"
+        return 0
+    fi
+
+    # 변경사항 확인
+    if git diff --quiet && git diff --cached --quiet; then
+        log_info "변경사항 없음 (설계 단계이거나 코드 변경이 없음)"
+        return 0
+    fi
+
+    log_step "자동 커밋 활성화 - 변경사항 검증 중..."
+
+    # 민감 파일 체크 (자동 커밋 차단)
+    local sensitive=$(git status --porcelain | grep -E '(\\.env|\\.key|credential|secret|password|token)' || true)
+    if [ -n "$sensitive" ]; then
+        log_error "⚠️  민감 정보 파일 감지! 자동 커밋 중단"
+        echo "$sensitive"
+        log_error "안전을 위해 수동 커밋으로 전환합니다."
+        echo ""
+        show_commit_guide "$phase" "$output_dir"
+        return 1
+    fi
+
+    # 커밋 메시지 생성
+    local commit_msg=""
+    case "$phase" in
+        design)
+            commit_msg="feat: add design document (AI cross-checked by Claude + Gemini)"
+            ;;
+        implement)
+            commit_msg="feat: implement feature (AI cross-checked by Claude + Gemini)"
+            ;;
+        test)
+            commit_msg="test: add tests (AI cross-checked by Claude + Gemini)"
+            ;;
+        full)
+            commit_msg="feat: complete feature with design, implementation, and tests (AI cross-checked)"
+            ;;
+    esac
+
+    # 변경된 파일 목록 표시
+    echo ""
+    log_info "자동 커밋할 파일 목록:"
+    git status --short
+    echo ""
+    log_info "커밋 메시지: $commit_msg"
+    echo ""
+
+    # 자동 커밋 실행
+    if git add -A && git commit -m "$commit_msg"; then
+        log_success "✅ 자동 커밋 완료"
+        log_info "결과 디렉토리: $output_dir"
+        log_info "상세 로그: $LOG_DIR"
+        return 0
+    else
+        log_error "자동 커밋 실패 - 수동 커밋 가이드로 전환"
+        show_commit_guide "$phase" "$output_dir"
+        return 1
+    fi
 }
 
 # 함수: 커밋 가이드 출력
@@ -1092,6 +1163,10 @@ main() {
                 BACKUP_ENABLED=false
                 shift
                 ;;
+            --auto-commit)
+                AUTO_COMMIT_ENABLED=true
+                shift
+                ;;
             *)
                 if [ -z "$mode" ]; then
                     mode="$1"
@@ -1141,6 +1216,7 @@ main() {
     log_info "최대 라운드: $MAX_ROUNDS"
     log_info "자동 롤백: $AUTO_ROLLBACK_ENABLED"
     log_info "파일 백업: $BACKUP_ENABLED"
+    log_info "자동 커밋: $AUTO_COMMIT_ENABLED"
     log_info "=========================================="
     echo ""
 
@@ -1152,7 +1228,7 @@ main() {
     case "$mode" in
         design)
             if cross_check_design_auto "$request_file" "$output_dir"; then
-                show_commit_guide "design" "$output_dir"
+                auto_commit "design" "$output_dir"
             else
                 result=1
                 # P2-1: 자동 롤백
@@ -1161,7 +1237,7 @@ main() {
             ;;
         implement|impl)
             if cross_check_implement_auto "$request_file" "$output_dir"; then
-                show_commit_guide "implement" "$output_dir"
+                auto_commit "implement" "$output_dir"
             else
                 result=1
                 auto_rollback
@@ -1169,7 +1245,7 @@ main() {
             ;;
         test)
             if cross_check_test_auto "$request_file" "$output_dir"; then
-                show_commit_guide "test" "$output_dir"
+                auto_commit "test" "$output_dir"
             else
                 result=1
                 auto_rollback
@@ -1177,7 +1253,7 @@ main() {
             ;;
         full|pipeline)
             if run_full_pipeline_auto "$request_file" "$output_dir"; then
-                show_commit_guide "full" "$output_dir"
+                auto_commit "full" "$output_dir"
             else
                 result=1
                 auto_rollback
